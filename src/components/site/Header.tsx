@@ -25,6 +25,7 @@ export default function Header({ orgName }: { orgName: string }) {
           <Link className="nav-link" href="/vender">Vender</Link>
           <Link className="nav-link" href="/sobre">Sobre</Link>
           <Link className="nav-link" href="/blog">Blog</Link>
+          <Link className="nav-link nav-entrar" href="/login">Entrar</Link>
           <Link className="btn-outline" href="/imoveis">Ver imóveis</Link>
         </div>
         <MobileNav />

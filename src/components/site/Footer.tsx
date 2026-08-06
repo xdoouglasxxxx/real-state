@@ -14,11 +14,15 @@ export default function Footer({ orgName, creci, phone }: { orgName: string; cre
           <Link href="/privacidade">Privacidade</Link>
           <Link href="/termos">Termos</Link>
           <Link href="/acessibilidade">Acessibilidade</Link>
+          <Link href="/login">Entrar</Link>
         </div>
       </div>
       <div className="footer-bottom">
         <span>© {new Date().getFullYear()} {orgName} · {creci ?? ""}</span>
         <span>{phone ?? ""}</span>
+      </div>
+      <div className="footer-saas">
+        <Link href="/criar">Para imobiliárias — crie o seu site como este →</Link>
       </div>
     </footer>
   );
