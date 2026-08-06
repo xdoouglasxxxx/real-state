@@ -1,0 +1,15 @@
+// Entidade: Contato / Interesse (leads)
+{
+  "name": "Inquiry",
+  "type": "object",
+  "properties": {
+    "name":        { "type": "string" },
+    "phone":       { "type": "string" },
+    "email":       { "type": "string", "format": "email" },
+    "message":     { "type": "string" },
+    "property_id": { "type": "string", "description": "Imóvel de interesse (se houver)" },
+    "kind":        { "type": "string", "enum": ["visit", "sell", "general"], "default": "general", "description": "Tipo de contato" },
+    "status":      { "type": "string", "enum": ["new", "contacted", "closed"], "default": "new" }
+  },
+  "required": ["name", "phone"]
+}
