@@ -1,4 +1,5 @@
 import Link from "next/link";
+import MobileNav from "./MobileNav";
 
 function LogoMark() {
   return (
@@ -26,6 +27,7 @@ export default function Header({ orgName }: { orgName: string }) {
           <Link className="nav-link" href="/blog">Blog</Link>
           <Link className="btn-outline" href="/imoveis">Ver imóveis</Link>
         </div>
+        <MobileNav />
       </div>
     </nav>
   );
