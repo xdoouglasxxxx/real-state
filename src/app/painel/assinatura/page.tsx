@@ -59,7 +59,7 @@ export default async function Assinatura({ searchParams }: { searchParams: { lim
                 <span className="btn-outline price-btn" style={{ opacity: .5, cursor: "default" }}>Plano atual</span>
               ) : (
                 <a className={(p.highlight ? "btn-solid" : "btn-outline") + " price-btn"}
-                   href={`https://wa.me/5511900000000?text=${encodeURIComponent(`Quero o plano ${p.label} para ${org.name} (${org.slug})`)}`}
+                   href={`https://wa.me/5541999003524?text=${encodeURIComponent(`Quero o plano ${p.label} para ${org.name} (${org.slug})`)}`}
                    target="_blank" rel="noopener">
                   {p.price === null ? "Falar com vendas" : "Fazer upgrade"}
                 </a>
