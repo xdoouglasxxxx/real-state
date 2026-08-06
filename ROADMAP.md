@@ -24,8 +24,8 @@ tabelas cobrindo TODAS as entidades do documento) · Deploy-ready Vercel+Supabas
 - [ ] **CRUD de imóveis no painel** — formulário completo, upload de fotos
       (Cloudinary), editar/pausar/vender  ← *a feature que destrava tudo*
 - [ ] CRUD de corretores e leads manuais no painel
-- [ ] Auth real (Better Auth): login por usuário, papéis ADMIN/GERENTE/CORRETOR
-      (substitui o Basic Auth)
+- [x] Login por imobiliária (sessão assinada, senha própria por tenant) ✅
+- [ ] Papéis por usuário ADMIN/GERENTE/CORRETOR (multiusuário por tenant)
 
 ## 🌊 ONDA 2 — CRM que vende (semanas 2-4)
 *Documento: CRM, Pipeline, Agenda, Notificações (parte)*
@@ -43,7 +43,8 @@ tabelas cobrindo TODAS as entidades do documento) · Deploy-ready Vercel+Supabas
 - [ ] Stripe: assinatura por plano (STARTER/PRO/ENTERPRISE) + gates de feature
 - [ ] Portal do Corretor (dashboard próprio: leads, agenda, comissões, ranking)
 - [ ] Portal do Cliente (propostas, documentos, status, favoritos)
-- [ ] Onboarding self-service: "crie sua imobiliária" (tenant automático)
+- [x] Onboarding self-service: "crie sua imobiliária" (tenant automático) ✅ ANTECIPADO
+- [ ] Conectar domínio próprio pelo painel: validação DNS + SSL automático (API Vercel)
 - [ ] Configurações do tenant: logo, cores, domínio, usuários, permissões
 
 ## 🌊 ONDA 4 — Financeiro + Contratos + Documentos (mês 3)
