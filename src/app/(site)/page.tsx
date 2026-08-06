@@ -43,15 +43,15 @@ export default async function Home() {
 
           <form action="/imoveis" method="GET">
             <div className="search-sentence">
-              <span>Procuro</span>
+              <span>Eu quero comprar</span>
               <select name="type" defaultValue="" aria-label="Tipo de imóvel">
-                <option value="">Qualquer tipo</option>
+                <option value="">qualquer imóvel</option>
                 <option value="HOUSE">Casa</option>
                 <option value="APARTMENT">Apartamento</option>
               </select>
               <span>em</span>
               <select name="location" defaultValue="" aria-label="Região">
-                <option value="">Qualquer região</option>
+                <option value="">todas as regiões</option>
                 {hoods.map((n) => <option key={n} value={n}>{n}</option>)}
               </select>
               <span>por</span>
@@ -63,7 +63,7 @@ export default async function Home() {
                 <option value="6000000-">Acima de R$ 6 mi</option>
               </select>
             </div>
-            <button className="btn-solid" type="submit">Buscar imóveis</button>
+            <button className="btn-hero" type="submit">Buscar imóveis</button>
           </form>
         </div>
       </header>
