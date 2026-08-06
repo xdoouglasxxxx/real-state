@@ -248,3 +248,42 @@ export async function getSubscriptionInfo(orgId: string) {
     };
   } catch { return fallback; }
 }
+
+export async function getLeadsBoardFull(orgId: string) {
+  if (!hasDb()) {
+    return [
+      { id: "1", stage: "FINANCING", source: "INSTAGRAM", name: "Douglas Ferreira", phone: "41999003524", property: "Loft Jardins", agent: "Beatriz Lins", createdAt: new Date() },
+      { id: "2", stage: "VISIT", source: "SITE", name: "Carla Mendes", phone: "11988887777", property: "Penthouse Horizonte", agent: "Rafael Moreno", createdAt: new Date() },
+      { id: "3", stage: "NEW", source: "WHATSAPP", name: "Otávio Nunes", phone: "11977776666", property: "Casa em Alphaville", agent: "Sem corretor", createdAt: new Date() },
+    ];
+  }
+  try {
+    const rows = await prisma.lead.findMany({
+      where: { organizationId: orgId, stage: { notIn: ["LOST"] } },
+      include: { contact: true, property: true, agent: true },
+      orderBy: { updatedAt: "desc" }, take: 300,
+    });
+    return rows.map((l) => ({
+      id: l.id, stage: l.stage, source: l.source,
+      name: l.contact?.name ?? "—",
+      phone: l.contact?.phone ?? "",
+      property: l.property?.title ?? l.interest ?? "—",
+      agent: l.agent?.name ?? "Sem corretor",
+      createdAt: l.createdAt,
+    }));
+  } catch { return []; }
+}
+
+export async function getLeadDetail(orgId: string, id: string) {
+  if (!hasDb()) return null;
+  try {
+    const l = await prisma.lead.findFirst({
+      where: { id, organizationId: orgId },
+      include: {
+        contact: true, property: true, agent: true,
+        activities: { orderBy: { createdAt: "desc" }, take: 50 },
+      },
+    });
+    return l;
+  } catch { return null; }
+}

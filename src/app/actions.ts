@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getTenant } from "@/lib/tenant";
+import { notifyNewLead } from "@/lib/notify";
 
 /**
  * Cria (ou reaproveita) o Contact e abre um Lead com a Activity inicial.
@@ -43,6 +44,10 @@ async function createLead(opts: {
       });
       await prisma.activity.create({
         data: { leadId: lead.id, type: "FORM_SUBMIT", payload: { kind: opts.kind, message: opts.message ?? "" } },
+      });
+      await notifyNewLead({
+        orgName: org.name, leadName: opts.name, leadPhone: opts.phone,
+        interest: opts.message, agentPhone: null,
       });
     } catch (e) {
       console.error("createLead:", e);
