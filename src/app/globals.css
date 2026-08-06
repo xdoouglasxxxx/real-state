@@ -438,3 +438,4 @@ html,body{overflow-x:hidden;max-width:100vw}
 .footer-saas a{font-size:.8rem;color:var(--brass);text-decoration:none;letter-spacing:.06em}
 .footer-saas a:hover{text-decoration:underline}
 .panel-slug{font-size:.66rem;letter-spacing:.1em;color:var(--stone);margin:-.4rem 0 1rem;padding-left:.1rem;word-break:break-all}
+.auth-hint{font-size:.78rem;color:var(--stone);line-height:1.4;margin-top:-.3rem}

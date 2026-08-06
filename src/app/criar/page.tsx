@@ -25,9 +25,10 @@ export default function Criar({ searchParams }: { searchParams: { erro?: string 
         <form action={createTenant} className="form" style={{ marginTop: "1.4rem" }}>
           <div className="form-row">
             <input name="name" placeholder="Nome da imobiliária*" required />
-            <input name="slug" placeholder="Endereço (ex.: silva)" pattern="[a-zA-Z0-9-]{2,40}"
+            <input name="slug" placeholder="Endereço do SITE (ex.: silva) — não é rua!" pattern="[a-zA-Z0-9-]{2,40}"
               title="Só letras, números e hífen" />
           </div>
+          <p className="auth-hint">O endereço do site vira o link da sua imobiliária (ex.: silva → silva.plataforma.com.br). Deixe em branco para gerar automaticamente a partir do nome.</p>
           <div className="form-row">
             <input name="city" placeholder="Cidade" />
             <input name="creci" placeholder="CRECI jurídico" />

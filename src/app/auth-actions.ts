@@ -57,15 +57,22 @@ export async function createTenant(formData: FormData) {
   redirect("/painel?bemvindo=1");
 }
 
-/** Login do painel: credenciais do tenant OU credenciais master (env). */
+/** Login do painel: pelo E-MAIL do admin (slug é opcional — só para
+ *  desempate se o mesmo e-mail administrar mais de uma imobiliária,
+ *  ou para o acesso master escolher o tenant). */
 export async function login(formData: FormData) {
-  const slug = slugify(String(formData.get("slug") ?? ""));
+  const slugRaw = String(formData.get("slug") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const pass = String(formData.get("password") ?? "");
-  if (!slug || !pass) redirect("/login?erro=1");
+  if (!email || !pass) redirect("/login?erro=1");
 
   try {
-    const org = await prisma.organization.findUnique({ where: { slug } });
+    const org = slugRaw
+      ? await prisma.organization.findUnique({ where: { slug: slugify(slugRaw) } })
+      : await prisma.organization.findFirst({
+          where: { adminEmail: email },
+          orderBy: { createdAt: "asc" },
+        });
     if (!org) redirect("/login?erro=1");
 
     const masterOk =

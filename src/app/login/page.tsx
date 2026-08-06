@@ -14,9 +14,10 @@ export default function Login({ searchParams }: { searchParams: { erro?: string 
         {searchParams.erro && <p className="pform-error">Credenciais inválidas. Confira o endereço, e-mail e senha.</p>}
 
         <form action={login} className="form" style={{ marginTop: "1.4rem" }}>
-          <input name="slug" placeholder="Endereço da imobiliária (ex.: silva)" required />
           <input name="email" type="email" placeholder="E-mail do administrador" required />
           <input name="password" type="password" placeholder="Senha" required />
+          <input name="slug" placeholder="Endereço do site (opcional)" />
+          <p className="auth-hint">Só preencha o endereço se o mesmo e-mail administrar mais de uma imobiliária.</p>
           <button className="btn-solid" type="submit">Entrar</button>
         </form>
 
