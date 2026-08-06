@@ -204,3 +204,22 @@ export async function getPanelProperties(orgId: string) {
     price: p.price, agent: "—", visits: 0, proposals: 0, daysOnMarket: 30,
   }));
 }
+
+export async function getPanelProperty(orgId: string, id: string) {
+  if (!hasDb()) return null;
+  try {
+    const p = await prisma.property.findFirst({
+      where: { id, organizationId: orgId },
+      include: { media: { orderBy: { sortOrder: "asc" } } },
+    });
+    if (!p) return null;
+    return {
+      ...p,
+      price: Number(p.price),
+      condoFee: p.condoFee ? Number(p.condoFee) : null,
+      iptuYearly: p.iptuYearly ? Number(p.iptuYearly) : null,
+      images: p.media.filter((m) => m.kind === "PHOTO").map((m) => m.url),
+      tourUrl: p.media.find((m) => m.kind === "VIRTUAL_TOUR")?.url ?? "",
+    };
+  } catch { return null; }
+}

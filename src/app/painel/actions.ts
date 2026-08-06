@@ -1,0 +1,128 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
+import { getTenant } from "@/lib/tenant";
+
+const slugify = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+   .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+   .slice(0, 60) || "imovel";
+
+const num = (v: FormDataEntryValue | null) => {
+  const n = Number(String(v ?? "").replace(",", "."));
+  return Number.isFinite(n) && String(v).trim() !== "" ? n : null;
+};
+
+/** Cria ou atualiza um imóvel (com fotos e tour) e revalida site + painel. */
+export async function saveProperty(formData: FormData) {
+  const org = await getTenant();
+  if (!process.env.DATABASE_URL || org.id === "demo") redirect("/painel/imoveis?demo=1");
+
+  const id = String(formData.get("id") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  const price = num(formData.get("price"));
+  const type = String(formData.get("type") ?? "HOUSE");
+  if (!title || price === null) redirect(id ? `/painel/imoveis/${id}?erro=1` : "/painel/imoveis/novo?erro=1");
+
+  const photos = formData.getAll("photos").map(String).filter(Boolean);
+  const tourUrl = String(formData.get("tourUrl") ?? "").trim();
+
+  const data: any = {
+    title,
+    description: String(formData.get("description") ?? "").trim() || null,
+    type: type as any,
+    status: String(formData.get("status") ?? "FOR_SALE") as any,
+    price,
+    condoFee: num(formData.get("condoFee")),
+    iptuYearly: num(formData.get("iptuYearly")),
+    neighborhood: String(formData.get("neighborhood") ?? "").trim() || null,
+    city: String(formData.get("city") ?? "").trim() || null,
+    state: String(formData.get("state") ?? "SP").trim() || "SP",
+    zipcode: String(formData.get("zipcode") ?? "").trim() || null,
+    address: String(formData.get("address") ?? "").trim() || null,
+    latitude: num(formData.get("latitude")),
+    longitude: num(formData.get("longitude")),
+    bedrooms: num(formData.get("bedrooms")),
+    bathrooms: num(formData.get("bathrooms")),
+    suites: num(formData.get("suites")),
+    parkingSpaces: num(formData.get("parkingSpaces")),
+    areaM2: num(formData.get("areaM2")),
+    features: String(formData.get("features") ?? "").split(",").map(s => s.trim()).filter(Boolean),
+    isFeatured: formData.get("isFeatured") === "on",
+    seoTitle: String(formData.get("seoTitle") ?? "").trim() || null,
+    seoDescription: String(formData.get("seoDescription") ?? "").trim() || null,
+    agentId: String(formData.get("agentId") ?? "") || null,
+  };
+
+  let propertyId = id;
+
+  try {
+    if (id) {
+      await prisma.property.update({ where: { id }, data });
+      // Regrava fotos e tour (simples e previsível)
+      await prisma.propertyMedia.deleteMany({ where: { propertyId: id, kind: { in: ["PHOTO", "VIRTUAL_TOUR"] } } });
+    } else {
+      // slug único por tenant
+      const base = slugify(title);
+      let slug = base;
+      for (let i = 2; await prisma.property.findUnique({ where: { organizationId_slug: { organizationId: org.id, slug } } }); i++) {
+        slug = `${base}-${i}`;
+      }
+      const created = await prisma.property.create({
+        data: { ...data, organizationId: org.id, slug, publishedAt: data.status === "DRAFT" ? null : new Date() },
+      });
+      propertyId = created.id;
+      await prisma.propertyEvent.create({
+        data: { propertyId, type: "created", payload: { title } },
+      });
+    }
+
+    if (photos.length || tourUrl) {
+      await prisma.propertyMedia.createMany({
+        data: [
+          ...photos.map((url, i) => ({ propertyId, kind: "PHOTO" as const, url, sortOrder: i })),
+          ...(tourUrl ? [{ propertyId, kind: "VIRTUAL_TOUR" as const, url: tourUrl, sortOrder: 999 }] : []),
+        ],
+      });
+    }
+  } catch (e) {
+    console.error("saveProperty:", e);
+    redirect(id ? `/painel/imoveis/${id}?erro=2` : "/painel/imoveis/novo?erro=2");
+  }
+
+  revalidatePath("/painel/imoveis");
+  revalidatePath("/imoveis");
+  revalidatePath("/");
+  redirect(`/painel/imoveis/${propertyId}?salvo=1`);
+}
+
+/** Muda o status (pausar, marcar vendido, republicar, arquivar). */
+export async function setPropertyStatus(formData: FormData) {
+  const org = await getTenant();
+  if (!process.env.DATABASE_URL || org.id === "demo") redirect("/painel/imoveis?demo=1");
+
+  const id = String(formData.get("id") ?? "");
+  const status = String(formData.get("status") ?? "FOR_SALE") as any;
+
+  try {
+    const before = await prisma.property.findUnique({ where: { id }, select: { status: true, publishedAt: true } });
+    await prisma.property.update({
+      where: { id },
+      data: {
+        status,
+        publishedAt: status === "FOR_SALE" && !before?.publishedAt ? new Date() : before?.publishedAt,
+      },
+    });
+    await prisma.propertyEvent.create({
+      data: { propertyId: id, type: "status_change", payload: { from: before?.status, to: status } },
+    });
+  } catch (e) {
+    console.error("setPropertyStatus:", e);
+  }
+
+  revalidatePath("/painel/imoveis");
+  revalidatePath("/imoveis");
+  redirect(`/painel/imoveis/${id}?salvo=1`);
+}
