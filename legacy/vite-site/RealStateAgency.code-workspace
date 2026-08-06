@@ -1,0 +1,7 @@
+{
+  "folders": [{ "path": "." }],
+  "settings": {
+    "files.associations": { "*.jsonc": "jsonc" },
+    "editor.formatOnSave": true
+  }
+}

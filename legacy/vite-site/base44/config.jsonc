@@ -1,0 +1,22 @@
+// Configuração do app (formato Base44)
+{
+  "name": "Real Estate Agency",
+  "slug": "real-estate-agency",
+  "description": "Site de agência imobiliária de alto padrão — Maison Estate",
+  "defaultLanguage": "pt-BR",
+  "pages": [
+    "Home",
+    "PropertySearch",
+    "PropertyDetail",
+    "Sell",
+    "About",
+    "Blog",
+    "BlogDetail",
+    "Privacy",
+    "Terms",
+    "Accessibility"
+  ],
+  "auth": {
+    "requiresAuth": false
+  }
+}
