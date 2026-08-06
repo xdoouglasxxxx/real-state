@@ -1,0 +1,14 @@
+# dependências e builds
+node_modules
+.next
+dist
+.vercel
+
+# segredos — NUNCA subir
+.env
+.env.local
+.env*.local
+
+# diversos
+*.log
+.DS_Store
