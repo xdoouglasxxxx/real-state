@@ -17,10 +17,6 @@ export const DEMO_ORG: Tenant = {
 
 export const HERO_VIDEO =
   "https://media.base44.com/videos/public/6a0c3ea982f98940623f21f5/a0e02d2b4_Video_Back.mp4";
-  export const HERO_FALLBACK =
-  "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=1600&q=80";
-export const PARALLAX_IMG =
-  "https://media.base44.com/images/public/6a0c3ea982f98940623f21f5/6dda216cf_Base44_Templates_Gemini_3__Nano_Banana_Pro__2026-05-19_14-53-44.jpg";
 
 export const DEMO_PROPERTIES = [
   {
