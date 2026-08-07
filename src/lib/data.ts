@@ -352,3 +352,142 @@ export async function getAgentDashboard(orgId: string, agentId: string) {
     };
   } catch { return empty; }
 }
+
+/* ---------- DASHBOARD 2.0 — inteligência de regras (sem IA externa) ---------- */
+
+export type DashAlert = { icon: string; text: string; href: string };
+
+/** Deltas vs. mesmo período do mês anterior, funil, alertas acionáveis,
+ *  origem dos leads e ranking de corretores — tudo com queries no Supabase. */
+export async function getDashboardIntel(orgId: string) {
+  const demo = {
+    deltas: { newLeads: 35, visitsDone: 20, sold: 100 },
+    visitsDoneMonth: 6,
+    funnel: [
+      { stage: "NEW", label: "Novo", count: 3 }, { stage: "CONTACTED", label: "Contatado", count: 4 },
+      { stage: "VISIT", label: "Visita", count: 3 }, { stage: "PROPOSAL", label: "Proposta", count: 2 },
+      { stage: "FINANCING", label: "Financiamento", count: 1 }, { stage: "CONTRACT", label: "Contrato", count: 1 },
+    ],
+    alerts: [
+      { icon: "✍️", text: "1 contrato aguardando assinatura há 6 dias — cobre a assinatura hoje", href: "/painel/leads" },
+      { icon: "🥶", text: "2 leads novos sem contato há mais de 72h", href: "/painel/leads" },
+      { icon: "🏠", text: "1 imóvel há 90+ dias sem nenhuma visita — revise preço e fotos", href: "/painel/imoveis" },
+    ] as DashAlert[],
+    sources: [
+      { source: "SITE", count: 9, won: 1 }, { source: "INSTAGRAM", count: 6, won: 1 },
+      { source: "GOOGLE", count: 4, won: 0 }, { source: "WHATSAPP", count: 4, won: 1 },
+    ],
+    ranking: [
+      { name: "Beatriz Lins", visits: 3, won: 1 }, { name: "Rafael Moreno", visits: 2, won: 0 },
+      { name: "Helena Duarte", visits: 1, won: 0 },
+    ],
+    pipeline: 9800000,
+  };
+  if (!hasDb()) return demo;
+
+  try {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    // mês anterior até o MESMO dia (comparação justa: parcial com parcial)
+    const prevSameDay = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate(), now.getHours());
+    const d72h = new Date(Date.now() - 72 * 3600000);
+    const d5d = new Date(Date.now() - 5 * 86400000);
+    const d90d = new Date(Date.now() - 90 * 86400000);
+
+    const [
+      newLeadsNow, newLeadsPrev,
+      visitsDoneNow, visitsDonePrev,
+      soldNow, soldPrev,
+      funnelRaw,
+      staleContracts, oldestContract, coldLeads, orphanLeads, staleProps,
+      leads90d, won90d,
+      visitsByAgent, wonByAgent, agentsList,
+      proposalAgg, contractAgg,
+    ] = await Promise.all([
+      prisma.lead.count({ where: { organizationId: orgId, createdAt: { gte: monthStart } } }),
+      prisma.lead.count({ where: { organizationId: orgId, createdAt: { gte: prevStart, lt: prevSameDay } } }),
+      prisma.visit.count({ where: { organizationId: orgId, status: "DONE", scheduledAt: { gte: monthStart } } }),
+      prisma.visit.count({ where: { organizationId: orgId, status: "DONE", scheduledAt: { gte: prevStart, lt: prevSameDay } } }),
+      prisma.contract.count({ where: { organizationId: orgId, status: "CLOSED", closedAt: { gte: monthStart } } }),
+      prisma.contract.count({ where: { organizationId: orgId, status: "CLOSED", closedAt: { gte: prevStart, lt: prevSameDay } } }),
+      prisma.lead.groupBy({ by: ["stage"], where: { organizationId: orgId, stage: { notIn: ["WON", "LOST"] } }, _count: true }),
+      prisma.contract.count({ where: { organizationId: orgId, status: "AWAITING_SIGNATURE", createdAt: { lt: d5d } } }),
+      prisma.contract.findFirst({ where: { organizationId: orgId, status: "AWAITING_SIGNATURE" }, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
+      prisma.lead.count({ where: { organizationId: orgId, stage: "NEW", createdAt: { lt: d72h } } }),
+      prisma.lead.count({ where: { organizationId: orgId, agentId: null, stage: { notIn: ["WON", "LOST"] } } }),
+      prisma.property.count({
+        where: {
+          organizationId: orgId, status: { in: ["FOR_SALE", "EXCLUSIVE"] },
+          createdAt: { lt: d90d },
+          visits: { none: { scheduledAt: { gte: d90d } } },
+        },
+      }),
+      prisma.lead.groupBy({ by: ["source"], where: { organizationId: orgId, createdAt: { gte: d90d } }, _count: true }),
+      prisma.lead.groupBy({ by: ["source"], where: { organizationId: orgId, stage: "WON", updatedAt: { gte: d90d } }, _count: true }),
+      prisma.visit.groupBy({ by: ["agentId"], where: { organizationId: orgId, status: "DONE", scheduledAt: { gte: monthStart }, agentId: { not: null } }, _count: true }),
+      prisma.lead.groupBy({ by: ["agentId"], where: { organizationId: orgId, stage: "WON", updatedAt: { gte: monthStart }, agentId: { not: null } }, _count: true }),
+      prisma.agent.findMany({ where: { organizationId: orgId }, select: { id: true, name: true } }),
+      prisma.proposal.aggregate({ where: { organizationId: orgId, status: "SENT" }, _sum: { amount: true } }),
+      prisma.contract.aggregate({ where: { organizationId: orgId, status: { in: ["AWAITING_SIGNATURE", "SIGNED", "FINANCING"] } }, _sum: { totalAmount: true } }),
+    ]);
+
+    const pct = (nowV: number, prevV: number) =>
+      prevV === 0 ? (nowV > 0 ? 100 : 0) : Math.round((100 * (nowV - prevV)) / prevV);
+
+    const STAGE_LABEL: Record<string, string> = {
+      NEW: "Novo", CONTACTED: "Contatado", VISIT: "Visita",
+      PROPOSAL: "Proposta", FINANCING: "Financiamento", CONTRACT: "Contrato",
+    };
+    const ORDER = ["NEW", "CONTACTED", "VISIT", "PROPOSAL", "FINANCING", "CONTRACT"];
+    const funnel = ORDER.map((st) => ({
+      stage: st, label: STAGE_LABEL[st],
+      count: funnelRaw.find((r) => r.stage === st)?._count ?? 0,
+    }));
+
+    const alerts: DashAlert[] = [];
+    if (staleContracts > 0) {
+      const days = oldestContract ? Math.floor((Date.now() - +oldestContract.createdAt) / 86400000) : 5;
+      alerts.push({ icon: "✍️", text: `${staleContracts} contrato${staleContracts > 1 ? "s" : ""} aguardando assinatura há ${days}+ dias — cobre a assinatura hoje`, href: "/painel/leads" });
+    }
+    if (coldLeads > 0) alerts.push({ icon: "🥶", text: `${coldLeads} lead${coldLeads > 1 ? "s" : ""} novo${coldLeads > 1 ? "s" : ""} sem contato há mais de 72h — cada hora custa conversão`, href: "/painel/leads" });
+    if (orphanLeads > 0) alerts.push({ icon: "👤", text: `${orphanLeads} lead${orphanLeads > 1 ? "s" : ""} sem corretor responsável — atribua para não esfriar`, href: "/painel/leads" });
+    if (staleProps > 0) alerts.push({ icon: "🏠", text: `${staleProps} imóve${staleProps > 1 ? "is" : "l"} há 90+ dias sem nenhuma visita — revise preço, fotos e destaque`, href: "/painel/imoveis" });
+
+    const sources = leads90d
+      .map((r) => ({
+        source: String(r.source), count: r._count,
+        won: won90d.find((w) => w.source === r.source)?._count ?? 0,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+
+    const nameOf = (id: string | null) => agentsList.find((a) => a.id === id)?.name ?? "—";
+    const rankMap = new Map<string, { name: string; visits: number; won: number }>();
+    for (const v of visitsByAgent) {
+      const k = String(v.agentId);
+      rankMap.set(k, { name: nameOf(v.agentId), visits: v._count, won: 0 });
+    }
+    for (const w of wonByAgent) {
+      const k = String(w.agentId);
+      const cur = rankMap.get(k) ?? { name: nameOf(w.agentId), visits: 0, won: 0 };
+      cur.won = w._count;
+      rankMap.set(k, cur);
+    }
+    const ranking = Array.from(rankMap.values())
+      .sort((a, b) => b.won - a.won || b.visits - a.visits)
+      .slice(0, 5);
+
+    // pipeline ponderado: propostas 50% + contratos em andamento 80%
+    const pipeline = 0.5 * Number(proposalAgg._sum.amount ?? 0) + 0.8 * Number(contractAgg._sum.totalAmount ?? 0);
+
+    return {
+      deltas: { newLeads: pct(newLeadsNow, newLeadsPrev), visitsDone: pct(visitsDoneNow, visitsDonePrev), sold: pct(soldNow, soldPrev) },
+      visitsDoneMonth: visitsDoneNow,
+      funnel, alerts, sources, ranking, pipeline,
+    };
+  } catch (e) {
+    console.error("getDashboardIntel:", e);
+    return { deltas: null, visitsDoneMonth: 0, funnel: [], alerts: [], sources: [], ranking: [], pipeline: 0 };
+  }
+}
