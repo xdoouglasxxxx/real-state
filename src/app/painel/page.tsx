@@ -7,9 +7,12 @@ export const dynamic = "force-dynamic";
 export default async function Dashboard({ searchParams }: { searchParams: { negado?: string; bemvindo?: string } }) {
   const ctx = await requirePanel();
 
-  // -------- Portal do Corretor: números só DELE --------
-  if (ctx.isAgent && ctx.agentId) {
-    const d = await getAgentDashboard(ctx.org.id, ctx.agentId);
+  // -------- Portal do Corretor: números só DELE (sem vínculo = zeros, nunca os da imobiliária) --------
+  if (ctx.isAgent) {
+    const d = ctx.agentId
+      ? await getAgentDashboard(ctx.org.id, ctx.agentId)
+      : { activeLeads: 0, newLeadsMonth: 0, scheduledVisits: 0, myProperties: 0,
+          commissionPending: 0, commissionPaidMonth: 0, meta: 0, realizado: 0, goalPct: 0 };
     const KPIS: [string, string][] = [
       [String(d.activeLeads), "leads ativos comigo"],
       [String(d.newLeadsMonth), "novos leads no mês"],
@@ -22,6 +25,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { nega
       <>
         <h1>Meu painel</h1>
         {searchParams.negado && <p className="pform-error">Você não tem permissão para acessar aquela área.</p>}
+        {!ctx.agentId && <p className="pform-error">Seu usuário ainda não está vinculado a um perfil de corretor — peça ao administrador (Usuários → seu cadastro).</p>}
         <div className="kpis">
           {KPIS.map(([n, l]) => (
             <div className="kpi" key={l}><strong>{n}</strong><span>{l}</span></div>

@@ -13,6 +13,7 @@
 import { redirect } from "next/navigation";
 import { getTenant, type Tenant } from "./tenant";
 import { getSession, type SessionRole } from "./auth";
+import { prisma } from "./prisma";
 
 export type PanelContext = {
   org: Tenant;
@@ -37,12 +38,28 @@ export async function getPanelContext(): Promise<PanelContext | null> {
   const role: SessionRole = master ? "ORG_ADMIN" : session.role ?? "ORG_ADMIN";
   const isAgent = role === "AGENT";
 
+  // Vínculo corretor↔usuário sempre fresco do banco: o admin pode ter
+  // vinculado DEPOIS do login, e o cookie não sabe disso.
+  let agentId: string | null = null;
+  if (isAgent) {
+    agentId = session.agentId ?? null;
+    if (session.userId && process.env.DATABASE_URL) {
+      try {
+        const a = await prisma.agent.findFirst({
+          where: { organizationId: org.id, userId: session.userId },
+          select: { id: true },
+        });
+        agentId = a?.id ?? agentId;
+      } catch (e) { console.error("getPanelContext(agent):", e); }
+    }
+  }
+
   return {
     org,
     email: session.email,
     userId: session.userId ?? null,
     role,
-    agentId: isAgent ? session.agentId ?? null : null,
+    agentId,
     master,
     isAdmin: master || role === "ORG_ADMIN",
     isManagerUp: master || role === "ORG_ADMIN" || role === "MANAGER",

@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 
 export default async function Leads() {
   const ctx = await requirePanel();
-  // Corretor vê apenas os leads atribuídos a ele
-  const leads = await getLeadsBoardFull(ctx.org.id, ctx.isAgent ? ctx.agentId : null);
+  // Corretor vê apenas os leads dele; sem vínculo, vê VAZIO (nunca os dos outros)
+  const leads = await getLeadsBoardFull(ctx.org.id, ctx.isAgent ? ctx.agentId ?? "-" : null);
 
   return (
     <>
