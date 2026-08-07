@@ -204,7 +204,9 @@ h1 em,h2 em,.logo em{font-style:italic;color:var(--brass)}
 .pform{display:flex;flex-direction:column;gap:2rem;max-width:980px}
 .pform section{border:1px solid var(--line);border-radius:4px;background:var(--umber);padding:1.6rem}
 .pform section h2{font-size:1.3rem;margin-bottom:1.2rem}
-.pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
+.pgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem}
+.pgrid label{min-width:0}
+.pgrid input,.pgrid select,.pgrid textarea{width:100%;min-width:0;max-width:100%}
 .pgrid label,.pform-tour{display:flex;flex-direction:column;gap:.4rem;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--stone)}
 .pgrid .span2{grid-column:span 2}
 .pgrid .span4{grid-column:span 4}
@@ -229,7 +231,7 @@ h1 em,h2 em,.logo em{font-style:italic;color:var(--brass)}
 .uploader-url{display:flex;gap:.7rem;flex-wrap:wrap;align-items:center}
 .uploader-url input{flex:1;min-width:260px;background:var(--ink);border:1px solid var(--line);border-radius:3px;color:var(--cream);padding:.75rem .9rem}
 .uploader-hint{width:100%;font-size:.78rem;color:var(--stone)}
-@media(max-width:900px){.pgrid{grid-template-columns:1fr 1fr}.pgrid .span4{grid-column:span 2}}
+@media(max-width:900px){.pgrid{grid-template-columns:repeat(2,minmax(0,1fr))}.pgrid .span4{grid-column:span 2}}
 
 /* ============================================================
    GLAMOUR PACK — tipografia de impacto, marca, micro-luxo
