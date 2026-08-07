@@ -69,6 +69,7 @@ export default async function Home() {
       </header>
 
       {/* DESTAQUES */}
+      {featured.length > 0 && (
       <section className="section cream">
         <div className="section-head">
           <p className="eyebrow dark">Seleção da semana</p>
@@ -79,6 +80,7 @@ export default async function Home() {
         </div>
         <div className="center"><Link className="btn-dark" href="/imoveis">Ver todos os imóveis</Link></div>
       </section>
+      )}
 
       {/* BAIRROS */}
       <section className="section">
@@ -118,6 +120,7 @@ export default async function Home() {
       </section>
 
       {/* EQUIPE */}
+      {agents.length > 0 && (
       <section className="section tight">
         <div className="section-head">
           <p className="eyebrow">Quem atende você</p>
@@ -135,8 +138,10 @@ export default async function Home() {
           ))}
         </div>
       </section>
+      )}
 
       {/* DEPOIMENTOS */}
+      {testimonials.length > 0 && (
       <section className="section tight">
         <div className="section-head">
           <p className="eyebrow">Quem confia</p>
@@ -151,6 +156,7 @@ export default async function Home() {
           ))}
         </div>
       </section>
+      )}
 
       {/* CTA + PARALLAX */}
       <section className="cta">

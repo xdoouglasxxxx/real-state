@@ -48,11 +48,14 @@ export async function addLeadNote(formData: FormData) {
 export async function assignAgent(formData: FormData) {
   const org = await guard();
   const leadId = String(formData.get("leadId") ?? "");
-  const agentId = String(formData.get("agentId") ?? "") || null;
+  const rawAgent = String(formData.get("agentId") ?? "");
   try {
     const lead = await prisma.lead.findFirst({ where: { id: leadId, organizationId: org.id } });
+    const agentOk = rawAgent
+      ? await prisma.agent.findFirst({ where: { id: rawAgent, organizationId: org.id }, select: { id: true } })
+      : null;
     if (lead) {
-      await prisma.lead.update({ where: { id: leadId }, data: { agentId } });
+      await prisma.lead.update({ where: { id: leadId }, data: { agentId: agentOk?.id ?? null } });
       await prisma.activity.create({
         data: { leadId, type: "NOTE", payload: { note: agentId ? "Lead atribuído a novo corretor" : "Corretor removido" } },
       });
@@ -72,6 +75,14 @@ export async function createManualLead(formData: FormData) {
   // NOTA: redirect() do Next lança exceção de controle — NUNCA dentro de try/catch.
   let newLeadId: string | null = null;
   try {
+    // Blindagem: só aceita corretor/imóvel que pertençam a ESTE tenant
+    const rawAgent = String(formData.get("agentId") ?? "");
+    const rawProperty = String(formData.get("propertyId") ?? "");
+    const [agentOk, propertyOk] = await Promise.all([
+      rawAgent ? prisma.agent.findFirst({ where: { id: rawAgent, organizationId: org.id }, select: { id: true } }) : null,
+      rawProperty ? prisma.property.findFirst({ where: { id: rawProperty, organizationId: org.id }, select: { id: true } }) : null,
+    ]);
+
     const existing = await prisma.contact.findFirst({ where: { organizationId: org.id, phone } });
     const contact = existing ?? (await prisma.contact.create({
       data: { organizationId: org.id, name, phone, kind: "BUYER" },
@@ -80,8 +91,8 @@ export async function createManualLead(formData: FormData) {
       data: {
         organizationId: org.id,
         contactId: contact.id,
-        agentId: String(formData.get("agentId") ?? "") || null,
-        propertyId: String(formData.get("propertyId") ?? "") || null,
+        agentId: agentOk?.id ?? null,
+        propertyId: propertyOk?.id ?? null,
         source: String(formData.get("source") ?? "OUTRO") as any,
         stage: "NEW",
         interest: String(formData.get("interest") ?? "").trim() || null,

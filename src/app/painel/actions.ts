@@ -54,8 +54,18 @@ export async function saveProperty(formData: FormData) {
     isFeatured: formData.get("isFeatured") === "on",
     seoTitle: String(formData.get("seoTitle") ?? "").trim() || null,
     seoDescription: String(formData.get("seoDescription") ?? "").trim() || null,
-    agentId: String(formData.get("agentId") ?? "") || null,
+    agentId: null as string | null, // validado abaixo contra o tenant
   };
+
+  const rawAgent = String(formData.get("agentId") ?? "");
+  if (rawAgent) {
+    try {
+      const agentOk = await prisma.agent.findFirst({
+        where: { id: rawAgent, organizationId: org.id }, select: { id: true },
+      });
+      data.agentId = agentOk?.id ?? null;
+    } catch {}
+  }
 
   // Enforcement do plano: limite de imóveis ativos ao CRIAR (fora do try:
   // redirect() lança exceção de controle e não pode ser capturado pelo catch)

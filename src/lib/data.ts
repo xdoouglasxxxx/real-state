@@ -15,14 +15,16 @@ const mapProperty = (p: any) => ({
 });
 
 export async function getFeaturedProperties(orgId: string) {
-  if (hasDb()) try {
-    const rows = await prisma.property.findMany({
-      where: { organizationId: orgId, isFeatured: true, status: { in: ["FOR_SALE", "EXCLUSIVE"] } },
-      orderBy: { createdAt: "desc" }, take: 3,
-      include: { media: { orderBy: { sortOrder: "asc" } } },
-    });
-    if (rows.length) return rows.map(mapProperty);
-  } catch {}
+  if (hasDb()) {
+    try {
+      const rows = await prisma.property.findMany({
+        where: { organizationId: orgId, isFeatured: true, status: { in: ["FOR_SALE", "EXCLUSIVE"] } },
+        orderBy: { createdAt: "desc" }, take: 3,
+        include: { media: { orderBy: { sortOrder: "asc" } } },
+      });
+      return rows.map(mapProperty); // vazio É a resposta certa p/ tenant novo
+    } catch {}
+  }
   return DEMO_PROPERTIES.filter((p) => p.isFeatured).slice(0, 3);
 }
 
@@ -56,7 +58,7 @@ export async function getNeighborhoods(orgId: string) {
       where: { organizationId: orgId, status: { notIn: ["DRAFT", "ARCHIVED"] } },
       select: { neighborhood: true }, distinct: ["neighborhood"],
     });
-    if (rows.length) return rows.map((r) => r.neighborhood).filter(Boolean) as string[];
+    return rows.map((r) => r.neighborhood).filter(Boolean) as string[];
   } catch {}
   return [...new Set(DEMO_PROPERTIES.map((p) => p.neighborhood))];
 }
@@ -95,10 +97,14 @@ export async function getAllPropertySlugs(orgId: string) {
 }
 
 export async function getAgents(orgId: string) {
-  if (hasDb()) try {
-    const rows = await prisma.agent.findMany({ where: { organizationId: orgId, isActive: true } });
-    if (rows.length) return rows;
-  } catch {}
+  if (hasDb()) {
+    try {
+      return await prisma.agent.findMany({
+        where: { organizationId: orgId, isActive: true },
+        orderBy: { createdAt: "asc" },
+      });
+    } catch {}
+  }
   return [
     { id: "a1", name: "Helena Duarte", creci: "CRECI 98.541", phone: "(11) 99812-4455", photoUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&q=80", bio: "Fundadora. 14 anos no alto padrão." },
     { id: "a2", name: "Rafael Moreno", creci: "CRECI 112.030", phone: "(11) 99633-2210", photoUrl: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&q=80", bio: "Especialista em coberturas." },
@@ -107,10 +113,11 @@ export async function getAgents(orgId: string) {
 }
 
 export async function getTestimonials(orgId: string) {
-  if (hasDb()) try {
-    const rows = await prisma.testimonial.findMany({ where: { organizationId: orgId }, orderBy: { createdAt: "desc" }, take: 3 });
-    if (rows.length) return rows;
-  } catch {}
+  if (hasDb()) {
+    try {
+      return await prisma.testimonial.findMany({ where: { organizationId: orgId }, orderBy: { createdAt: "desc" }, take: 3 });
+    } catch {}
+  }
   return [
     { id: "t1", text: "Vendemos nossa casa em 28 dias, acima do valor que esperávamos.", author: "Família Sampaio", context: "Venderam em Alphaville" },
     { id: "t2", text: "A segunda visita já era o imóvel certo. Eles ouvem de verdade.", author: "Carla & Diego M.", context: "Compraram no Itaim" },
@@ -119,10 +126,11 @@ export async function getTestimonials(orgId: string) {
 }
 
 export async function getBlogPosts(orgId: string) {
-  if (hasDb()) try {
-    const rows = await prisma.blogPost.findMany({ where: { organizationId: orgId, published: true }, orderBy: { createdAt: "desc" } });
-    if (rows.length) return rows;
-  } catch {}
+  if (hasDb()) {
+    try {
+      return await prisma.blogPost.findMany({ where: { organizationId: orgId, published: true }, orderBy: { createdAt: "desc" } });
+    } catch {}
+  }
   return [{ id: "b1", slug: "vale-a-pena-comprar-na-planta", title: "Vale a pena comprar na planta em 2026?", excerpt: "Os cenários em que ainda faz sentido — e os que não.", content: "Comprar na planta já foi sinônimo de valorização garantida. Hoje, a conta é mais fina.\n\nFaz sentido quando o incorporador tem histórico sólido na região e a tabela está de fato abaixo do metro quadrado dos prontos.\n\nNão faz sentido quando a diferença para o pronto é pequena — o risco de obra não é remunerado.", coverImage: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1200&q=80", author: "Helena Duarte", createdAt: new Date() }];
 }
 

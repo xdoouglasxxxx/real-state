@@ -24,6 +24,7 @@ export default async function PainelLayout({ children }: { children: React.React
         <Link className="panel-link" href="/painel">Dashboard</Link>
         <Link className="panel-link" href="/painel/leads">Leads</Link>
         <Link className="panel-link" href="/painel/imoveis">Imóveis</Link>
+        <Link className="panel-link" href="/painel/corretores">Corretores</Link>
         <Link className="panel-link" href="/painel/assinatura">Assinatura</Link>
         <Link className="panel-link" href="/painel/configuracoes">Configurações</Link>
         <Link className="panel-link" href="/" style={{ marginTop: "auto" }}>← Ver site</Link>
