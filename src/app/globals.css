@@ -439,3 +439,15 @@ html,body{overflow-x:hidden;max-width:100vw}
 .footer-saas a:hover{text-decoration:underline}
 .panel-slug{font-size:.66rem;letter-spacing:.1em;color:var(--stone);margin:-.4rem 0 1rem;padding-left:.1rem;word-break:break-all}
 .auth-hint{font-size:.78rem;color:var(--stone);line-height:1.4;margin-top:-.3rem}
+
+/* ---------- AGENDA ---------- */
+.agenda-day{margin-bottom:2rem}
+.agenda-day h2{font-size:1.25rem;margin-bottom:.9rem;text-transform:capitalize}
+.agenda-item{display:flex;align-items:center;gap:1.1rem;flex-wrap:wrap;border:1px solid var(--line);border-radius:8px;background:var(--umber);padding:.9rem 1.1rem;margin-bottom:.6rem}
+.agenda-hour{font-family:var(--font-display),serif;font-size:1.3rem;color:var(--brass);min-width:64px}
+.agenda-info{display:flex;flex-direction:column;flex:1;min-width:180px}
+.agenda-info span{font-size:.85rem;color:var(--stone)}
+.agenda-actions{display:flex;gap:.5rem;flex-wrap:wrap}
+.agenda-status-DONE{border-color:#5a8a5a;color:#8fc98f}
+.agenda-status-NO_SHOW{border-color:#8a6a3a;color:#d8b271}
+.agenda-status-CANCELED{border-color:#8a4a4a;color:#d88}

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getTenant } from "@/lib/tenant";
 import { notifyNewLead } from "@/lib/notify";
+import { pickAgentRoundRobin } from "@/lib/assign";
 
 /**
  * Cria (ou reaproveita) o Contact e abre um Lead com a Activity inicial.
@@ -32,6 +33,7 @@ async function createLead(opts: {
           },
         }));
 
+      const chosen = await pickAgentRoundRobin(org.id).catch(() => null);
       const lead = await prisma.lead.create({
         data: {
           organizationId: org.id,
@@ -39,15 +41,21 @@ async function createLead(opts: {
           propertyId: opts.propertyId || null,
           source: "SITE",
           stage: "NEW",
+          agentId: chosen?.id ?? null,
           interest: opts.message?.slice(0, 500),
         },
       });
       await prisma.activity.create({
         data: { leadId: lead.id, type: "FORM_SUBMIT", payload: { kind: opts.kind, message: opts.message ?? "" } },
       });
+      if (chosen) {
+        await prisma.activity.create({
+          data: { leadId: lead.id, type: "NOTE", payload: { note: `Distribuído automaticamente para ${chosen.name} (rodízio)` } },
+        });
+      }
       await notifyNewLead({
         orgName: org.name, leadName: opts.name, leadPhone: opts.phone,
-        interest: opts.message, agentPhone: null,
+        interest: opts.message, agentName: chosen?.name ?? null, agentPhone: chosen?.phone ?? null,
       });
     } catch (e) {
       console.error("createLead:", e);

@@ -43,7 +43,10 @@ export default async function LeadFicha({ params }: { params: { id: string } }) 
               <Link href={`/painel/imoveis/${lead.property.id}`} style={{ color: "var(--brass)" }}>{lead.property.title}</Link>
             ) : "—"}</p>
             <p><strong>Criado em:</strong> {new Date(lead.createdAt).toLocaleString("pt-BR")}</p>
-            {wa && <a className="btn-solid" style={{ marginTop: ".8rem", display: "inline-flex" }} href={wa} target="_blank" rel="noopener">💬 Chamar no WhatsApp</a>}
+            <div style={{ display: "flex", gap: ".7rem", flexWrap: "wrap", marginTop: ".8rem" }}>
+              {wa && <a className="btn-solid" href={wa} target="_blank" rel="noopener">💬 WhatsApp</a>}
+              <Link className="btn-outline" href={`/painel/agenda/nova?lead=${lead.id}`}>📅 Agendar visita</Link>
+            </div>
           </section>
 
           <section className="ficha-box">

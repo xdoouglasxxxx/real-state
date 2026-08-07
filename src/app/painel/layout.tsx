@@ -23,6 +23,7 @@ export default async function PainelLayout({ children }: { children: React.React
         <span className="panel-slug">{org.slug}.{process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? ""}</span>
         <Link className="panel-link" href="/painel">Dashboard</Link>
         <Link className="panel-link" href="/painel/leads">Leads</Link>
+        <Link className="panel-link" href="/painel/agenda">Agenda</Link>
         <Link className="panel-link" href="/painel/imoveis">Imóveis</Link>
         <Link className="panel-link" href="/painel/corretores">Corretores</Link>
         <Link className="panel-link" href="/painel/assinatura">Assinatura</Link>

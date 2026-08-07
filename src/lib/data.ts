@@ -295,3 +295,16 @@ export async function getLeadDetail(orgId: string, id: string) {
     return l;
   } catch { return null; }
 }
+
+export async function getVisits(orgId: string) {
+  if (!hasDb()) return [];
+  try {
+    const since = new Date(Date.now() - 86400000); // ontem em diante
+    return await prisma.visit.findMany({
+      where: { organizationId: orgId, scheduledAt: { gte: since } },
+      include: { property: { select: { title: true } }, contact: { select: { name: true, phone: true } }, agent: { select: { name: true } }, lead: { select: { id: true } } },
+      orderBy: { scheduledAt: "asc" },
+      take: 100,
+    });
+  } catch { return []; }
+}
