@@ -634,3 +634,117 @@ export async function getSidebarBadges(orgId: string, agentId?: string | null) {
     return { coldLeads, visitsToday };
   } catch { return empty; }
 }
+
+/* ---------- ONDA 4.1 — FINANCEIRO ---------- */
+
+export const FIN_CATEGORY: Record<string, string> = {
+  COMISSAO_RECEBIDA: "Comissão recebida", COMISSAO_PAGA: "Repasse a corretor",
+  IMPOSTO: "Impostos e taxas", PRO_LABORE: "Pró-labore", DESPESA_FIXA: "Despesa fixa",
+  DESPESA_VARIAVEL: "Despesa variável", MARKETING: "Marketing", RECEITA_OUTRA: "Outras receitas",
+};
+
+/** Visão financeira: KPIs do mês, fluxo 6 meses, DRE por categoria e comissões. */
+export async function getFinance(orgId: string, year: number, month: number) {
+  const empty = {
+    kpis: { inPaid: 0, outPaid: 0, result: 0, toReceive: 0, toPay: 0, overdue: 0 },
+    flow: [] as { label: string; inn: number; out: number }[],
+    dre: [] as { category: string; direction: string; total: number }[],
+    entries: [] as any[],
+    commissions: [] as any[],
+  };
+  if (!hasDb()) return empty;
+  try {
+    const mStart = new Date(year, month - 1, 1);
+    const mEnd = new Date(year, month, 0, 23, 59, 59);
+    const now = new Date();
+    const flowStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+
+    const [paidAgg, openAgg, overdueAgg, flowRows, dreRows, entries, commissions] = await Promise.all([
+      // realizado no mês (pelo paidAt)
+      prisma.financeEntry.groupBy({
+        by: ["direction"],
+        where: { organizationId: orgId, paidAt: { gte: mStart, lte: mEnd } },
+        _sum: { amount: true },
+      }),
+      // em aberto com vencimento no mês
+      prisma.financeEntry.groupBy({
+        by: ["direction"],
+        where: { organizationId: orgId, paidAt: null, dueDate: { gte: mStart, lte: mEnd } },
+        _sum: { amount: true },
+      }),
+      // vencidos e não pagos (qualquer data até hoje)
+      prisma.financeEntry.aggregate({
+        where: { organizationId: orgId, paidAt: null, dueDate: { lt: now } },
+        _sum: { amount: true },
+      }),
+      // fluxo dos últimos 6 meses (pelo paidAt)
+      prisma.financeEntry.findMany({
+        where: { organizationId: orgId, paidAt: { gte: flowStart } },
+        select: { direction: true, amount: true, paidAt: true },
+      }),
+      // DRE do mês selecionado (pago no mês, por categoria)
+      prisma.financeEntry.groupBy({
+        by: ["category", "direction"],
+        where: { organizationId: orgId, paidAt: { gte: mStart, lte: mEnd } },
+        _sum: { amount: true },
+      }),
+      // lançamentos do mês (vencimento no mês)
+      prisma.financeEntry.findMany({
+        where: { organizationId: orgId, dueDate: { gte: mStart, lte: mEnd } },
+        orderBy: [{ paidAt: "asc" }, { dueDate: "asc" }],
+        take: 200,
+        include: { contract: { select: { id: true, proposal: { select: { property: { select: { title: true } } } } } } },
+      }),
+      // comissões pendentes (todas) + pagas no mês
+      prisma.commission.findMany({
+        where: {
+          organizationId: orgId,
+          OR: [{ status: "PENDING" }, { status: "PAID", paidAt: { gte: mStart, lte: mEnd } }],
+        },
+        orderBy: [{ status: "desc" }, { paidAt: "desc" }],
+        take: 100,
+        include: {
+          agent: { select: { name: true } },
+          contract: { select: { totalAmount: true, proposal: { select: { property: { select: { title: true } } } } } },
+        },
+      }),
+    ]);
+
+    const g = (rows: any[], dir: string) => Number(rows.find((r) => r.direction === dir)?._sum.amount ?? 0);
+    const inPaid = g(paidAgg, "IN"), outPaid = g(paidAgg, "OUT");
+
+    // série de 6 meses
+    const flowMap = new Map<string, { inn: number; out: number }>();
+    for (let k = 5; k >= 0; k--) {
+      const d0 = new Date(now.getFullYear(), now.getMonth() - k, 1);
+      flowMap.set(`${d0.getFullYear()}-${d0.getMonth()}`, { inn: 0, out: 0 });
+    }
+    for (const r of flowRows) {
+      const d0 = new Date(r.paidAt as any);
+      const key = `${d0.getFullYear()}-${d0.getMonth()}`;
+      const slot = flowMap.get(key);
+      if (slot) slot[r.direction === "IN" ? "inn" : "out"] += Number(r.amount);
+    }
+    const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+    const flow = Array.from(flowMap.entries()).map(([key, v]) => {
+      const [, m0] = key.split("-").map(Number);
+      return { label: MONTHS[m0], inn: v.inn, out: v.out };
+    });
+
+    return {
+      kpis: {
+        inPaid, outPaid, result: inPaid - outPaid,
+        toReceive: g(openAgg, "IN"), toPay: g(openAgg, "OUT"),
+        overdue: Number(overdueAgg._sum.amount ?? 0),
+      },
+      flow,
+      dre: dreRows.map((r) => ({ category: String(r.category), direction: String(r.direction), total: Number(r._sum.amount ?? 0) }))
+                  .sort((a, b) => (a.direction === b.direction ? b.total - a.total : a.direction === "IN" ? -1 : 1)),
+      entries,
+      commissions,
+    };
+  } catch (e) {
+    console.error("getFinance:", e);
+    return empty;
+  }
+}

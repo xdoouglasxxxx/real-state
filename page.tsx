@@ -1,252 +1,191 @@
-import { requirePanel } from "@/lib/perm";
-import { getDashboard, getAgentDashboard, getDashboardIntel, getAgentCopilot, leadTemp } from "@/lib/data";
-import Link from "next/link";
+import { requireAdmin } from "@/lib/perm";
+import { getFinance, FIN_CATEGORY } from "@/lib/data";
 import { brl, brlCompact } from "@/lib/format";
+import { createFinanceEntry, toggleFinancePaid, payCommission } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-/** Variação vs. mesmo período do mês passado (▲ bom, ▼ atenção) */
-function Delta({ v }: { v: number }) {
-  if (v === 0) return <small className="delta" style={{ color: "var(--stone)" }}>— estável vs mês passado</small>;
-  const up = v > 0;
-  return (
-    <small className="delta" style={{ color: up ? "#8fbb7d" : "#c67a6b" }}>
-      {up ? "▲" : "▼"} {Math.abs(v) > 400 ? ">400" : Math.abs(v)}% vs mês passado
-    </small>
-  );
-}
+const fmtD = (x: Date | string) => new Date(x).toLocaleDateString("pt-BR");
 
-const NEGADO_MSG: Record<string, string> = {
-  "1": "Você não tem permissão para acessar aquela área.",
-  gerente: "Aquela área é para gerentes e administradores. Seus leads, agenda e imóveis continuam aqui — se precisar do acesso, fale com o administrador da imobiliária.",
-  admin: "Aquela área é exclusiva do administrador (assinatura, configurações e usuários). Se precisar de algo lá, fale com quem administra a conta.",
-};
+export default async function Financeiro({ searchParams }: { searchParams: { mes?: string; salvo?: string; erro?: string; comissao?: string } }) {
+  const ctx = await requireAdmin();
 
-export default async function Dashboard({ searchParams }: { searchParams: { negado?: string; bemvindo?: string } }) {
-  const ctx = await requirePanel();
-
-  // -------- Portal do Corretor: números só DELE (sem vínculo = zeros, nunca os da imobiliária) --------
-  if (ctx.isAgent) {
-    const [d, pilot] = ctx.agentId
-      ? await Promise.all([getAgentDashboard(ctx.org.id, ctx.agentId), getAgentCopilot(ctx.org.id, ctx.agentId)])
-      : [{ activeLeads: 0, newLeadsMonth: 0, scheduledVisits: 0, myProperties: 0,
-          commissionPending: 0, commissionPaidMonth: 0, meta: 0, realizado: 0, goalPct: 0 },
-         { top: [], cooling: [], coolingCount: 0, hotCommission: 0 }];
-    const KPIS: [string, string][] = [
-      [String(d.activeLeads), "leads ativos comigo"],
-      [String(d.newLeadsMonth), "novos leads no mês"],
-      [String(d.scheduledVisits), "visitas agendadas"],
-      [String(d.myProperties), "imóveis sob minha carteira"],
-      [brl(d.commissionPending), "comissões a receber"],
-      [brl(d.commissionPaidMonth), "comissões pagas no mês"],
-    ];
-    const waPilot = (phone?: string | null, name?: string | null) =>
-      `https://wa.me/55${String(phone ?? "").replace(/\D/g, "")}?text=${encodeURIComponent(`Olá ${String(name ?? "").split(" ")[0]}! Tudo bem? 😊`)}`;
-    return (
-      <>
-        <h1>Meu painel</h1>
-        {searchParams.negado && <p className="pform-error">{NEGADO_MSG[searchParams.negado] ?? NEGADO_MSG["1"]}</p>}
-        {!ctx.agentId && <p className="pform-error">Seu usuário ainda não está vinculado a um perfil de corretor — peça ao administrador (Usuários → seu cadastro).</p>}
-        <div className="kpis">
-          {KPIS.map(([n, l]) => (
-            <div className="kpi" key={l}><strong>{n}</strong><span>{l}</span></div>
-          ))}
-          {d.meta > 0 && (
-            <div className="kpi">
-              <strong>{d.goalPct}%</strong>
-              <span>minha meta do mês · {brl(d.realizado)} de {brl(d.meta)}</span>
-              <div className="meta-bar"><i style={{ width: `${d.goalPct}%` }} /></div>
-            </div>
-          )}
-        </div>
-        {(pilot.top.length > 0 || pilot.coolingCount > 0 || pilot.hotCommission > 0) && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.2rem", margin: "1.4rem 0" }}>
-            <section className="ficha-box">
-              <h2>⚡ Para atacar hoje</h2>
-              {pilot.top.length === 0 && <p style={{ color: "var(--stone)" }}>Sem leads ativos na carteira.</p>}
-              {pilot.top.map((l: any) => {
-                const t = leadTemp(l.score);
-                return (
-                  <p key={l.id} style={{ marginBottom: ".5rem", fontSize: ".92rem" }}>
-                    {t.icon} <Link href={`/painel/leads/${l.id}`} style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>
-                      <strong>{l.contact?.name}</strong>
-                    </Link>
-                    <span style={{ color: "var(--stone)" }}> · score {l.score}{l.property?.title ? ` · ${l.property.title}` : ""}</span>
-                    {l.contact?.phone && <> · <a href={waPilot(l.contact.phone, l.contact.name)} target="_blank" rel="noopener">💬</a></>}
-                  </p>
-                );
-              })}
-              <p style={{ color: "var(--stone)", fontSize: ".78rem" }}>Seus leads mais quentes, por score — comece o dia por eles.</p>
-            </section>
-
-            <section className="ficha-box" style={pilot.coolingCount > 0 ? { borderColor: "var(--brass)" } : undefined}>
-              <h2>🥶 Esfriando ({pilot.coolingCount})</h2>
-              {pilot.coolingCount === 0 && <p style={{ color: "var(--stone)" }}>Ninguém esfriando — carteira em dia. ✨</p>}
-              {pilot.cooling.map((l: any) => (
-                <p key={l.id} style={{ marginBottom: ".5rem", fontSize: ".92rem" }}>
-                  <Link href={`/painel/leads/${l.id}`} style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>{l.contact?.name}</Link>
-                  <span style={{ color: "var(--stone)" }}> · {Math.floor((Date.now() - +new Date(l.updatedAt)) / 86400000)} dias sem movimento</span>
-                  {l.contact?.phone && <> · <a href={waPilot(l.contact.phone, l.contact.name)} target="_blank" rel="noopener">💬</a></>}
-                </p>
-              ))}
-              <p style={{ color: "var(--stone)", fontSize: ".78rem" }}>Leads novos/contatados parados há 72h+ — cada hora custa conversão.</p>
-            </section>
-
-            <section className="ficha-box">
-              <h2>💰 Em jogo agora</h2>
-              <div className="kpi" style={{ border: "none", padding: 0 }}>
-                <strong>{brlCompact(pilot.hotCommission)}</strong>
-                <span>comissão potencial em negociação</span>
-              </div>
-              <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".6rem" }}>
-                Estimativa: imóveis dos seus leads em proposta/financiamento/contrato × sua comissão. Fechar é embolsar.
-              </p>
-            </section>
-          </div>
-        )}
-        <p style={{ color: "var(--stone)", fontSize: ".85rem" }}>
-          Estes números são só seus: leads atribuídos a você, sua agenda e suas comissões.
-        </p>
-      </>
-    );
-  }
-
-  // -------- Dashboard 2.0 da imobiliária (admin/gerente) --------
-  const [d, intel] = await Promise.all([getDashboard(ctx.org.id), getDashboardIntel(ctx.org.id)]);
-
-  // Projeção da meta pelo ritmo do mês + pipeline ponderado
+  // Mês selecionado (?mes=2026-08); padrão = mês atual
   const now = new Date();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const paceProjection = d.realizado > 0 ? Math.round((d.realizado / now.getDate()) * daysInMonth) : 0;
-  const pacePct = d.meta > 0 ? Math.round((100 * paceProjection) / d.meta) : 0;
-  const paceLabel = pacePct > 200 ? "bem acima de 100%" : `~${pacePct}%`;
-  const earlyMonth = now.getDate() < 8; // poucos dias fechados distorcem a projeção linear
-  const gap = Math.max(0, d.meta - d.realizado);
+  const [y, m] = (searchParams.mes ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`)
+    .split("-").map(Number);
+  const year = y || now.getFullYear();
+  const month = m || now.getMonth() + 1;
+  const mesStr = `${year}-${String(month).padStart(2, "0")}`;
+  const prev = new Date(year, month - 2, 1);
+  const next = new Date(year, month, 1);
+  const mesLabel = new Date(year, month - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const toMes = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
-  const maxFunnel = Math.max(1, ...intel.funnel.map((f: any) => f.count));
-  const maxSource = Math.max(1, ...intel.sources.map((s: any) => s.count));
+  const f = await getFinance(ctx.org.id, year, month);
+  const maxFlow = Math.max(1, ...f.flow.map((x) => Math.max(x.inn, x.out)));
+  const pendingCms = f.commissions.filter((c: any) => c.status === "PENDING");
+  const paidCms = f.commissions.filter((c: any) => c.status === "PAID");
+  const dreIn = f.dre.filter((r) => r.direction === "IN");
+  const dreOut = f.dre.filter((r) => r.direction === "OUT");
 
   return (
     <>
-      <h1>Hoje</h1>
-      {searchParams.negado && <p className="pform-error">{NEGADO_MSG[searchParams.negado] ?? NEGADO_MSG["1"]}</p>}
+      <div className="phead">
+        <h1>Financeiro</h1>
+        <span style={{ display: "flex", gap: ".6rem", alignItems: "baseline" }}>
+          <a className="pill" href={`/painel/financeiro?mes=${toMes(prev)}`} style={{ textDecoration: "none" }}>←</a>
+          <strong style={{ textTransform: "capitalize" }}>{mesLabel}</strong>
+          <a className="pill" href={`/painel/financeiro?mes=${toMes(next)}`} style={{ textDecoration: "none" }}>→</a>
+        </span>
+      </div>
 
-      {/* ---- Requer sua atenção hoje ---- */}
-      <section className="ficha-box" style={{ marginBottom: "1.4rem", borderColor: intel.alerts.length ? "var(--brass)" : undefined }}>
-        <h2>⚡ Requer sua atenção hoje</h2>
-        {intel.alerts.length === 0 && (
-          <p style={{ color: "var(--stone)" }}>Tudo em dia — nenhum contrato parado, lead esfriando ou imóvel encalhado. ✨</p>
-        )}
-        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: ".45rem" }}>
-          {intel.alerts.map((a: any) => (
-            <li key={a.text}>
-              <Link href={a.href} className="alert-li">
-                <span>{a.icon}</span><span style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>{a.text}</span>
-              </Link>
-            </li>
-          ))}
-          {gap > 0 && d.meta > 0 && (
-            <li className="alert-li" style={{ color: "var(--stone)" }}>
-              <span>🎯</span>
-              <span>
-                Faltam {brl(gap)} para a meta. No ritmo atual o mês fecha em {paceLabel}{earlyMonth ? " (início de mês — projeção ainda instável)" : ` (${brl(paceProjection)})`};
-                pipeline ponderado cobre {brl(intel.pipeline)}{intel.pipeline < gap ? " — abaixo do necessário: priorize propostas e assinaturas" : " — dá para bater, é fechar o que está na mesa"}.
-              </span>
-            </li>
-          )}
-        </ul>
-      </section>
+      {searchParams.salvo && <p className="ok" style={{ marginBottom: "1rem" }}>✔ Lançamento registrado.</p>}
+      {searchParams.comissao && <p className="ok" style={{ marginBottom: "1rem" }}>✔ Comissão paga — o repasse já entrou como saída no fluxo de caixa.</p>}
+      {searchParams.erro && <p className="pform-error">Confira os campos: direção, categoria, descrição, valor e vencimento são obrigatórios.</p>}
 
-      {/* ---- KPIs com variação ---- */}
+      {/* ---- KPIs do mês ---- */}
       <div className="kpis">
+        <div className="kpi"><strong>{brlCompact(f.kpis.inPaid)}</strong><span>recebido no mês</span></div>
+        <div className="kpi"><strong>{brlCompact(f.kpis.outPaid)}</strong><span>pago no mês</span></div>
         <div className="kpi">
-          <strong>{brlCompact(d.availableValue)}</strong>
-          <span>em imóveis disponíveis ({d.availableCount})</span>
+          <strong style={{ color: f.kpis.result >= 0 ? "var(--brass)" : "#c67a6b" }}>{brlCompact(f.kpis.result)}</strong>
+          <span>resultado do mês (caixa)</span>
         </div>
+        <div className="kpi"><strong>{brlCompact(f.kpis.toReceive)}</strong><span>a receber no mês</span></div>
+        <div className="kpi"><strong>{brlCompact(f.kpis.toPay)}</strong><span>a pagar no mês</span></div>
         <div className="kpi">
-          <strong>{d.newLeads}</strong>
-          <span>novos leads no mês{intel.deltas && <Delta v={intel.deltas.newLeads} />}</span>
-        </div>
-        <div className="kpi">
-          <strong>{d.visits}</strong>
-          <span>visitas marcadas · {intel.visitsDoneMonth} realizadas no mês{intel.deltas && <Delta v={intel.deltas.visitsDone} />}</span>
-        </div>
-        <div className="kpi">
-          <strong>{d.awaitingContracts}</strong>
-          <span>contratos aguardando assinatura</span>
-        </div>
-        <div className="kpi">
-          <strong>{d.proposals}</strong>
-          <span>propostas em aberto</span>
-        </div>
-        <div className="kpi">
-          <strong>{d.soldMonth}</strong>
-          <span>vendidos este mês{intel.deltas && <Delta v={intel.deltas.sold} />}</span>
-        </div>
-        <div className="kpi">
-          <strong>{d.conversion}%</strong>
-          <span>conversão (leads → ganho)</span>
-        </div>
-        <div className="kpi">
-          <strong>{d.goalPct}%</strong>
-          <span>meta do mês · {brlCompact(d.realizado)} de {brlCompact(d.meta)}</span>
-          <div className="meta-bar"><i style={{ width: `${d.goalPct}%` }} /></div>
+          <strong style={{ color: f.kpis.overdue > 0 ? "#c67a6b" : "var(--brass)" }}>{brlCompact(f.kpis.overdue)}</strong>
+          <span>vencidos em aberto (total)</span>
         </div>
       </div>
 
-      {/* ---- Funil + Origem + Ranking ---- */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.2rem", marginTop: "1.4rem" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.2rem", marginBottom: "1.4rem" }}>
+        {/* ---- Fluxo de caixa 6 meses ---- */}
         <section className="ficha-box">
-          <h2>Funil ativo</h2>
-          {intel.funnel.map((f: any) => (
-            <div key={f.stage} style={{ marginBottom: ".55rem" }}>
+          <h2>Fluxo de caixa · 6 meses</h2>
+          {f.flow.map((x) => (
+            <div key={x.label} style={{ marginBottom: ".6rem" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".82rem", marginBottom: ".2rem" }}>
-                <span>{f.label}</span><span style={{ color: "var(--stone)" }}>{f.count}</span>
+                <span style={{ textTransform: "capitalize" }}>{x.label}</span>
+                <span style={{ color: "var(--stone)" }}>+{brlCompact(x.inn)} · −{brlCompact(x.out)}</span>
               </div>
-              <div className="meta-bar"><i style={{ width: `${Math.round((100 * f.count) / maxFunnel)}%` }} /></div>
+              <div className="meta-bar" style={{ marginBottom: ".2rem" }}><i style={{ width: `${Math.round((100 * x.inn) / maxFlow)}%` }} /></div>
+              <div className="meta-bar"><i style={{ width: `${Math.round((100 * x.out) / maxFlow)}%`, background: "#7a5548" }} /></div>
             </div>
           ))}
-          <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".6rem" }}>Leads ativos por estágio (perdidos e ganhos fora).</p>
+          <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".5rem" }}>Dourado = entradas · terracota = saídas (pelo que foi efetivamente pago).</p>
         </section>
 
+        {/* ---- DRE simplificado ---- */}
         <section className="ficha-box">
-          <h2>Origem dos leads · 90 dias</h2>
-          {intel.sources.length === 0 && <p style={{ color: "var(--stone)" }}>Sem leads no período.</p>}
-          {intel.sources.map((s: any) => (
-            <div key={s.source} style={{ marginBottom: ".55rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".82rem", marginBottom: ".2rem" }}>
-                <span>{s.source}</span>
-                <span style={{ color: "var(--stone)" }}>{s.count} lead{s.count > 1 ? "s" : ""}{s.won > 0 ? ` · ${s.won} venda${s.won > 1 ? "s" : ""}` : ""}</span>
-              </div>
-              <div className="meta-bar"><i style={{ width: `${Math.round((100 * s.count) / maxSource)}%` }} /></div>
+          <h2>DRE simplificado · {mesLabel}</h2>
+          {dreIn.length + dreOut.length === 0 && <p style={{ color: "var(--stone)" }}>Sem movimentações pagas neste mês.</p>}
+          {dreIn.map((r) => (
+            <p key={r.category} style={{ display: "flex", justifyContent: "space-between", fontSize: ".9rem", marginBottom: ".3rem" }}>
+              <span>{FIN_CATEGORY[r.category] ?? r.category}</span><span>{brl(r.total)}</span>
+            </p>
+          ))}
+          {dreOut.map((r) => (
+            <p key={r.category} style={{ display: "flex", justifyContent: "space-between", fontSize: ".9rem", marginBottom: ".3rem", color: "var(--stone)" }}>
+              <span>{FIN_CATEGORY[r.category] ?? r.category}</span><span>−{brl(r.total)}</span>
+            </p>
+          ))}
+          <p style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, borderTop: "1px solid var(--line)", paddingTop: ".5rem", marginTop: ".5rem" }}>
+            <span>Resultado</span>
+            <span style={{ color: f.kpis.result >= 0 ? "var(--brass)" : "#c67a6b" }}>{brl(f.kpis.result)}</span>
+          </p>
+        </section>
+
+        {/* ---- Comissões ---- */}
+        <section className="ficha-box" style={pendingCms.length ? { borderColor: "var(--brass)" } : undefined}>
+          <h2>Comissões a pagar ({pendingCms.length})</h2>
+          {pendingCms.length === 0 && <p style={{ color: "var(--stone)" }}>Nenhuma comissão pendente. ✨</p>}
+          {pendingCms.slice(0, 8).map((c: any) => (
+            <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: ".6rem", marginBottom: ".45rem", fontSize: ".9rem" }}>
+              <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                <strong>{c.agent?.name}</strong>
+                <span style={{ color: "var(--stone)" }}> · {c.contract?.proposal?.property?.title ?? "—"} · {brl(c.amount)}</span>
+              </span>
+              <form action={payCommission}>
+                <input type="hidden" name="id" value={c.id} />
+                <input type="hidden" name="mes" value={mesStr} />
+                <button className="pill" type="submit" style={{ cursor: "pointer", background: "none", whiteSpace: "nowrap" }}>Pagar</button>
+              </form>
             </div>
           ))}
-          <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".6rem" }}>Onde investir: volume + vendas por canal.</p>
-        </section>
-
-        <section className="ficha-box">
-          <h2>Ranking do mês</h2>
-          {intel.ranking.length === 0 && <p style={{ color: "var(--stone)" }}>Sem visitas realizadas ou vendas registradas ainda neste mês.</p>}
-          {intel.ranking.length > 0 && (
-            <table className="table" style={{ fontSize: ".85rem" }}>
-              <thead><tr><th></th><th>Corretor</th><th>Visitas</th><th>Vendas</th></tr></thead>
-              <tbody>
-                {intel.ranking.map((r: any, i: number) => (
-                  <tr key={r.name}>
-                    <td>{["🥇", "🥈", "🥉"][i] ?? `${i + 1}º`}</td>
-                    <td>{r.name}</td><td>{r.visits}</td><td>{r.won}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {paidCms.length > 0 && (
+            <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".5rem" }}>
+              Pagas no mês: {paidCms.length} · {brl(paidCms.reduce((s: number, c: any) => s + Number(c.amount), 0))}
+            </p>
           )}
-          <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".6rem" }}>Visitas realizadas e negócios ganhos no mês.</p>
         </section>
       </div>
 
-      <p style={{ color: "var(--stone)", fontSize: ".85rem", marginTop: "1.2rem" }}>
-        Os números vêm direto do Supabase, em tempo real. Variações comparam com o mesmo período do mês anterior.
-      </p>
+      {/* ---- Novo lançamento ---- */}
+      <form action={createFinanceEntry} className="pform" style={{ maxWidth: 980, marginBottom: "1.6rem" }}>
+        <input type="hidden" name="mes" value={mesStr} />
+        <section>
+          <h2>Novo lançamento</h2>
+          <div className="pgrid">
+            <label>Tipo
+              <select name="direction" defaultValue="OUT">
+                <option value="IN">Entrada (a receber)</option>
+                <option value="OUT">Saída (a pagar)</option>
+              </select>
+            </label>
+            <label>Categoria
+              <select name="category" defaultValue="DESPESA_VARIAVEL">
+                {Object.entries(FIN_CATEGORY).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </label>
+            <label className="span2">Descrição*<input name="description" required placeholder="Ex.: Anúncio ZAP — agosto" /></label>
+            <label>Valor (R$)*<input name="amount" required inputMode="decimal" placeholder="2.500,00" /></label>
+            <label>Vencimento*<input name="dueDate" type="date" required /></label>
+            <label style={{ display: "flex", alignItems: "center", gap: ".5rem", marginTop: "1.4rem" }}>
+              <input type="checkbox" name="alreadyPaid" style={{ width: "auto" }} /> Já pago/recebido
+            </label>
+          </div>
+          <div className="pform-footer"><button className="btn-solid" type="submit">Lançar</button></div>
+        </section>
+      </form>
+
+      {/* ---- Lançamentos do mês ---- */}
+      <h2 style={{ marginBottom: ".8rem" }}>Lançamentos de {mesLabel} ({f.entries.length})</h2>
+      {f.entries.length === 0 ? (
+        <p style={{ color: "var(--stone)" }}>Nenhum lançamento com vencimento neste mês — use "Novo lançamento" acima ou navegue entre os meses.</p>
+      ) : (
+        <table className="table">
+          <thead><tr><th>Venc.</th><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            {f.entries.map((e: any) => {
+              const overdue = !e.paidAt && +new Date(e.dueDate) < Date.now();
+              return (
+                <tr key={e.id} style={{ opacity: e.paidAt ? 0.55 : 1 }}>
+                  <td>{fmtD(e.dueDate)}</td>
+                  <td>{e.description}{e.contract?.proposal?.property?.title ? <span style={{ color: "var(--stone)" }}> · {e.contract.proposal.property.title}</span> : null}</td>
+                  <td><span className="pill">{FIN_CATEGORY[e.category] ?? e.category}</span></td>
+                  <td style={{ whiteSpace: "nowrap" }}>{e.direction === "IN" ? "+" : "−"}{brl(e.amount)}</td>
+                  <td>
+                    <span className="pill" style={overdue ? { borderColor: "#c67a6b", color: "#c67a6b" } : undefined}>
+                      {e.paidAt ? (e.direction === "IN" ? "Recebido" : "Pago") : overdue ? "Vencido" : "Em aberto"}
+                    </span>
+                  </td>
+                  <td>
+                    <form action={toggleFinancePaid}>
+                      <input type="hidden" name="id" value={e.id} />
+                      <input type="hidden" name="mes" value={mesStr} />
+                      <button className="pill" type="submit" style={{ cursor: "pointer", background: "none" }}>
+                        {e.paidAt ? "Estornar" : e.direction === "IN" ? "Receber" : "Pagar"}
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
     </>
   );
 }
