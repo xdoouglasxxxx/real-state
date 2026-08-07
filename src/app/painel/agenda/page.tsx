@@ -41,7 +41,8 @@ export default async function Agenda({ searchParams }: { searchParams: { salvo?:
         <h1>{ctx.isAgent ? "Minha agenda" : "Agenda de visitas"}</h1>
         <Link className="btn-solid" href="/painel/agenda/nova">＋ Agendar visita</Link>
       </div>
-      {searchParams.salvo && <p className="ok" style={{ marginBottom: "1rem" }}>✔ Visita agendada — o lead foi movido para "Visita" no funil.</p>}
+      {searchParams.salvo === "lead" && <p className="ok" style={{ marginBottom: "1rem" }}>✔ Visita agendada — o lead foi movido para "Visita" no funil.</p>}
+      {searchParams.salvo && searchParams.salvo !== "lead" && <p className="ok" style={{ marginBottom: "1rem" }}>✔ Visita agendada.</p>}
 
       {visits.length === 0 && (
         <p style={{ color: "var(--stone)" }}>

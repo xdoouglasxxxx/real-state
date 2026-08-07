@@ -14,7 +14,13 @@ export async function createVisit(formData: FormData) {
   const when = String(formData.get("scheduledAt") ?? "");
   if (!propertyId || !when) redirect("/painel/agenda/nova?erro=1");
 
+  // Validação da data: precisa ser válida e no futuro (tolerância de 1h p/ relógio)
+  const scheduledAt = new Date(`${when}:00-03:00`); // horário digitado no fuso do Brasil
+  if (isNaN(+scheduledAt)) redirect("/painel/agenda/nova?erro=1");
+  if (+scheduledAt < Date.now() - 3600000) redirect("/painel/agenda/nova?erro=data");
+
   let ok = false;
+  let movedLead = false;
   try {
     // Blindagem multi-tenant
     const [property, lead] = await Promise.all([
@@ -31,9 +37,6 @@ export async function createVisit(formData: FormData) {
     const agentOk = rawAgent
       ? await prisma.agent.findFirst({ where: { id: rawAgent, organizationId: org.id }, select: { id: true } })
       : null;
-
-    // horário digitado no fuso do Brasil
-    const scheduledAt = new Date(`${when}:00-03:00`);
 
     await prisma.visit.create({
       data: {
@@ -59,6 +62,7 @@ export async function createVisit(formData: FormData) {
         await prisma.activity.create({
           data: { leadId: lead.id, type: "STAGE_CHANGE", payload: { from: lead.stage, to: "VISIT" } },
         });
+        movedLead = true;
       }
     }
     ok = true;
@@ -67,7 +71,7 @@ export async function createVisit(formData: FormData) {
   }
   revalidatePath("/painel/agenda");
   revalidatePath("/painel/leads");
-  redirect(ok ? "/painel/agenda?salvo=1" : "/painel/agenda/nova?erro=2");
+  redirect(ok ? (movedLead ? "/painel/agenda?salvo=lead" : "/painel/agenda?salvo=1") : "/painel/agenda/nova?erro=2");
 }
 
 /** Atualiza o status (realizada / não veio / cancelada). */

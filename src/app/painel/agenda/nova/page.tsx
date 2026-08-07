@@ -12,6 +12,9 @@ export default async function NovaVisita({ searchParams }: { searchParams: { err
     getAgents(org.id), getPanelProperties(org.id),
     getLeadsBoardFull(org.id, ctx.isAgent ? ctx.agentId ?? "-" : null),
   ]);
+
+  // Bloqueia datas passadas no seletor (horário de Brasília, formato do input)
+  const minLocal = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 16);
   // só faz sentido visitar o que está disponível
   const properties = (allProperties as any[]).filter((p) => !["SOLD", "ARCHIVED"].includes(p.status));
 
@@ -21,6 +24,7 @@ export default async function NovaVisita({ searchParams }: { searchParams: { err
       <h1>Agendar visita</h1>
       {searchParams.erro === "1" && <p className="pform-error">Escolha o imóvel e o horário.</p>}
       {searchParams.erro === "2" && <p className="pform-error">Erro ao salvar — tente de novo.</p>}
+      {searchParams.erro === "data" && <p className="pform-error">A data da visita precisa ser no futuro — confira o dia e o ano escolhidos.</p>}
       {properties.length === 0 && (
         <p className="pform-error">Cadastre ao menos um imóvel antes de agendar (a visita acontece em um imóvel 😉).</p>
       )}
@@ -41,7 +45,7 @@ export default async function NovaVisita({ searchParams }: { searchParams: { err
               </select>
             </label>
             <label className="span2">Data e hora*
-              <input type="datetime-local" name="scheduledAt" required />
+              <input type="datetime-local" name="scheduledAt" required min={minLocal} />
             </label>
             {ctx.isAgent ? (
               <label className="span2">Corretor
