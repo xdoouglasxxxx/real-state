@@ -66,6 +66,8 @@ export async function assignAgent(formData: FormData) {
  *  Corretor cria, mas o lead entra automaticamente na carteira DELE. */
 export async function createManualLead(formData: FormData) {
   const ctx = await requirePanel();
+  // Corretor sem vínculo não cria lead: nasceria "sem dono" e invisível para ele
+  if (ctx.isAgent && !ctx.agentId) redirect("/painel/leads/novo?erro=vinculo");
   const name = String(formData.get("name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
   if (!name || !phone) redirect("/painel/leads/novo?erro=1");

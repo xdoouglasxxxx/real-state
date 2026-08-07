@@ -16,6 +16,7 @@ export default async function NovoLead({ searchParams }: { searchParams: { erro?
       <h1>Novo lead</h1>
       {searchParams.erro === "1" && <p className="pform-error">Preencha nome e telefone.</p>}
       {searchParams.erro === "2" && <p className="pform-error">Erro ao salvar no banco. Tente de novo — se persistir, veja os Logs.</p>}
+      {searchParams.erro === "vinculo" && <p className="pform-error">Seu usuário ainda não está vinculado a um perfil de corretor — peça ao administrador (Usuários → seu cadastro) antes de criar leads.</p>}
 
       <form action={createManualLead} className="pform" style={{ maxWidth: 720 }}>
         <section>
