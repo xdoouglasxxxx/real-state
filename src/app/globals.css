@@ -456,3 +456,23 @@ html,body{overflow-x:hidden;max-width:100vw}
 .agenda-status-CANCELED{border-color:#8a4a4a;color:#d88}
 
 .nav-badge{display:inline-block;min-width:1.35em;margin-left:.45rem;padding:.05em .4em;border-radius:999px;background:var(--brass);color:var(--ink);font-size:.68rem;font-weight:700;text-align:center;letter-spacing:0}
+
+/* Financeiro v2 — passe visual (mockup) */
+.month-pill{display:inline-flex;align-items:center;gap:.55rem;border:1px solid var(--line);border-radius:999px;padding:.35rem .5rem;background:var(--umber)}
+.month-pill a{display:inline-flex;width:1.7rem;height:1.7rem;align-items:center;justify-content:center;border-radius:999px;border:1px solid var(--line);text-decoration:none;color:var(--cream)}
+.month-pill strong{padding:0 .35rem;text-transform:capitalize}
+.kpi-hint{display:block;margin-top:.55rem;padding-top:.5rem;border-top:1px solid var(--line);font-size:.68rem;letter-spacing:.04em;text-transform:none;color:var(--stone)}
+.subcard{background:rgba(0,0,0,.28);border:1px solid var(--line);border-radius:10px;padding:.85rem .95rem;margin-bottom:.7rem}
+.badge-prioridade{border:1px solid var(--brass);color:var(--ink);background:var(--brass);border-radius:999px;font-size:.66rem;letter-spacing:.14em;padding:.2rem .6rem;font-weight:700}
+.twin-boxes{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.7rem}
+.twin-boxes>div{border:1px solid var(--line);border-radius:10px;padding:.6rem .8rem}
+.twin-boxes span{display:block;font-size:.64rem;letter-spacing:.16em;text-transform:uppercase;color:var(--stone)}
+.twin-boxes strong{font-size:.95rem}
+.dashed-box{border:1px dashed var(--line);border-radius:10px;padding:.6rem .8rem;color:var(--stone);font-size:.76rem;margin-top:.7rem}
+.filter-chip{display:inline-flex;align-items:center;gap:.4rem;border:1px solid var(--brass);color:var(--brass);border-radius:999px;padding:.2rem .7rem;font-size:.74rem;text-decoration:none}
+.dre-result{display:flex;justify-content:space-between;font-weight:700;border-top:1px solid var(--line);padding:.6rem .7rem;margin-top:.6rem;background:rgba(198,161,91,.07);border-radius:8px}
+.badge-status{border:1px solid;border-radius:999px;font-size:.7rem;letter-spacing:.1em;padding:.18rem .6rem;text-transform:uppercase;white-space:nowrap}
+.badge-pago{color:#8fbb7d;border-color:#425c3c}
+.badge-recebido{color:var(--brass);border-color:var(--brass)}
+.badge-previsto{color:var(--stone);border-color:var(--line)}
+.badge-vencido{color:#e57373;border-color:#7a4640}

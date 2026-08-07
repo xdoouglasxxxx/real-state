@@ -54,10 +54,10 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
     <>
       <div className="phead">
         <h1>Financeiro</h1>
-        <span style={{ display: "flex", gap: ".6rem", alignItems: "baseline" }}>
-          <a className="pill" href={`/painel/financeiro?mes=${toMes(prev)}`} style={{ textDecoration: "none" }}>←</a>
-          <strong style={{ textTransform: "capitalize" }}>{mesLabel}</strong>
-          <a className="pill" href={`/painel/financeiro?mes=${toMes(next)}`} style={{ textDecoration: "none" }}>→</a>
+        <span className="month-pill">
+          <a href={`/painel/financeiro?mes=${toMes(prev)}`}>‹</a>
+          <strong>● {mesLabel}</strong>
+          <a href={`/painel/financeiro?mes=${toMes(next)}`}>›</a>
         </span>
       </div>
 
@@ -79,8 +79,8 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
                 style={{ textDecoration: "none", borderColor: filtro === id ? "var(--brass)" : undefined }}>
             <strong style={color ? { color } : undefined}>{val}</strong>
             <span>{label}</span>
-            <span style={{ display: "block", marginTop: ".3rem", fontSize: ".68rem", letterSpacing: ".05em", textTransform: "none", color: filtro === id ? "var(--brass)" : "var(--stone)", opacity: .85 }}>
-              {filtro === id ? "Filtrando extrato · clique para limpar" : "Clique para filtrar o extrato"}
+            <span className="kpi-hint" style={filtro === id ? { color: "var(--brass)" } : undefined}>
+              {filtro === id ? "Filtrando extrato • clique para limpar" : "Clique para filtrar o extrato abaixo"}
             </span>
           </Link>
         ))}
@@ -119,35 +119,40 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
               <span>{FIN_CATEGORY[r.category] ?? r.category}</span><span>−{brl(r.total)}</span>
             </Link>
           ))}
-          <p style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, borderTop: "1px solid var(--line)", paddingTop: ".5rem", marginTop: ".5rem" }}>
-            <span>Resultado</span>
-            <span style={{ color: f.kpis.result >= 0 ? "var(--brass)" : "#c67a6b" }}>{brl(f.kpis.result)}</span>
+          <p className="dre-result">
+            <span>RESULTADO</span>
+            <span style={{ color: f.kpis.result >= 0 ? "var(--brass)" : "#e57373" }}>{brl(f.kpis.result)}</span>
           </p>
         </section>
 
         {/* ---- Comissões ---- */}
         <section className="ficha-box" style={pendingCms.length ? { borderColor: "var(--brass)" } : undefined}>
-          <h2>Comissões a pagar ({pendingCms.length})</h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: ".6rem", marginBottom: ".7rem" }}>
+            <h2 style={{ margin: 0 }}>Comissões a pagar ({pendingCms.length})</h2>
+            {pendingCms.length > 0 && <span className="badge-prioridade">PRIORIDADE</span>}
+          </div>
           {pendingCms.length === 0 && <p style={{ color: "var(--stone)" }}>Nenhuma comissão pendente. ✨</p>}
-          {pendingCms.slice(0, 8).map((c: any) => (
-            <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: ".6rem", marginBottom: ".45rem", fontSize: ".9rem" }}>
+          {pendingCms.slice(0, 6).map((c: any) => (
+            <div key={c.id} className="subcard" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: ".7rem" }}>
               <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
                 <strong>{c.agent?.name}</strong>
-                <span style={{ color: "var(--stone)" }}> · {c.contract?.proposal?.property?.title ?? "—"} · {brl(c.amount)}</span>
+                <span style={{ display: "block", color: "var(--stone)", fontSize: ".8rem" }}>{c.contract?.proposal?.property?.title ?? "—"}</span>
+                <strong style={{ color: "var(--brass)" }}>{brl(c.amount)}</strong>
               </span>
               <form action={payCommission}>
                 <input type="hidden" name="id" value={c.id} />
                 <input type="hidden" name="mes" value={mesStr} />
-                <button className="pill" type="submit" style={{ cursor: "pointer", background: "none", whiteSpace: "nowrap" }}>Pagar</button>
+                <button className="btn-solid" type="submit" style={{ whiteSpace: "nowrap" }}>PAGAR</button>
               </form>
             </div>
           ))}
           {paidCms.length > 0 && (
-            <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".5rem" }}>
-              Pagas no mês: {paidCms.length} · {brl(paidCms.reduce((s: number, c: any) => s + Number(c.amount), 0))}
-              {" · "}ticket médio {brl(paidCms.reduce((s: number, c: any) => s + Number(c.amount), 0) / paidCms.length)}
-            </p>
+            <div className="twin-boxes">
+              <div><span>Pagas no mês</span><strong>{paidCms.length} • {brl(paidCms.reduce((s: number, c: any) => s + Number(c.amount), 0))}</strong></div>
+              <div><span>Ticket médio</span><strong>{brl(paidCms.reduce((s: number, c: any) => s + Number(c.amount), 0) / paidCms.length)}</strong></div>
+            </div>
           )}
+          <p className="dashed-box">📎 Rastreável: cada pagamento registra autor, data e o repasse no extrato.</p>
         </section>
       </div>
 
@@ -207,7 +212,9 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
       </div>
       {(filtro || cat || q) && (
         <p style={{ marginBottom: ".8rem" }}>
-          <Link className="pill" href={`/painel/financeiro?mes=${mesStr}`} style={{ textDecoration: "none" }}>✕ Limpar filtros</Link>
+          <Link className="filter-chip" href={`/painel/financeiro?mes=${mesStr}`}>
+            Filtro: {[filtro && KPI_LABEL[filtro], cat && (FIN_CATEGORY[cat] ?? cat), q && `"${q}"`].filter(Boolean).join(" · ")} ✕
+          </Link>
         </p>
       )}
       {f.entries.length === 0 ? (
@@ -241,8 +248,8 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
                   </td>
                   <td style={{ whiteSpace: "nowrap" }}>{e.direction === "IN" ? "+" : "−"}{brl(e.amount)}</td>
                   <td>
-                    <span className="pill" style={overdue ? { borderColor: "#c67a6b", color: "#c67a6b" } : undefined}>
-                      {e.paidAt ? (e.direction === "IN" ? "Recebido" : "Pago") : overdue ? "Vencido" : "Em aberto"}
+                    <span className={"badge-status " + (e.paidAt ? (e.direction === "IN" ? "badge-recebido" : "badge-pago") : overdue ? "badge-vencido" : "badge-previsto")}>
+                      {e.paidAt ? (e.direction === "IN" ? "Recebido" : "Pago") : overdue ? "Vencido" : "Previsto"}
                     </span>
                   </td>
                   <td style={{ color: "var(--stone)", fontSize: ".8rem" }}>{e.createdBy ?? "—"}</td>
@@ -261,6 +268,10 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
           </tbody>
         </table>
       )}
+
+      <p style={{ color: "var(--stone)", fontSize: ".72rem", marginTop: "2rem", textAlign: "center", letterSpacing: ".08em" }}>
+        © 2026 {ctx.org.name.toUpperCase()} • Painel financeiro premium dark • BRL formatado com Intl pt-BR
+      </p>
     </>
   );
 }
