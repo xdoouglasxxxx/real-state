@@ -57,7 +57,7 @@ export async function assignAgent(formData: FormData) {
     if (lead) {
       await prisma.lead.update({ where: { id: leadId }, data: { agentId: agentOk?.id ?? null } });
       await prisma.activity.create({
-        data: { leadId, type: "NOTE", payload: { note: agentId ? "Lead atribuído a novo corretor" : "Corretor removido" } },
+        data: { leadId, type: "NOTE", payload: { note: agentOk ? "Lead atribuído a novo corretor" : "Corretor removido" } },
       });
     }
   } catch (e) { console.error("assignAgent:", e); }
