@@ -7,11 +7,11 @@ export const dynamic = "force-dynamic";
 
 /** Variação vs. mesmo período do mês passado (▲ bom, ▼ atenção) */
 function Delta({ v }: { v: number }) {
-  if (v === 0) return <small style={{ fontSize: ".72rem", color: "var(--stone)" }}> — estável</small>;
+  if (v === 0) return <small className="delta" style={{ color: "var(--stone)" }}>— estável vs mês passado</small>;
   const up = v > 0;
   return (
-    <small style={{ fontSize: ".72rem", color: up ? "#8fbb7d" : "#c67a6b", whiteSpace: "nowrap" }}>
-      {" "}{up ? "▲" : "▼"} {Math.abs(v)}% vs mês passado
+    <small className="delta" style={{ color: up ? "#8fbb7d" : "#c67a6b" }}>
+      {up ? "▲" : "▼"} {Math.abs(v) > 400 ? ">400" : Math.abs(v)}% vs mês passado
     </small>
   );
 }
@@ -65,6 +65,8 @@ export default async function Dashboard({ searchParams }: { searchParams: { nega
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const paceProjection = d.realizado > 0 ? Math.round((d.realizado / now.getDate()) * daysInMonth) : 0;
   const pacePct = d.meta > 0 ? Math.round((100 * paceProjection) / d.meta) : 0;
+  const paceLabel = pacePct > 200 ? "bem acima de 100%" : `~${pacePct}%`;
+  const earlyMonth = now.getDate() < 8; // poucos dias fechados distorcem a projeção linear
   const gap = Math.max(0, d.meta - d.realizado);
 
   const maxFunnel = Math.max(1, ...intel.funnel.map((f: any) => f.count));
@@ -84,16 +86,16 @@ export default async function Dashboard({ searchParams }: { searchParams: { nega
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: ".45rem" }}>
           {intel.alerts.map((a: any) => (
             <li key={a.text}>
-              <Link href={a.href} style={{ display: "flex", gap: ".55rem", alignItems: "baseline" }}>
+              <Link href={a.href} className="alert-li">
                 <span>{a.icon}</span><span style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>{a.text}</span>
               </Link>
             </li>
           ))}
           {gap > 0 && d.meta > 0 && (
-            <li style={{ display: "flex", gap: ".55rem", alignItems: "baseline", color: "var(--stone)" }}>
+            <li className="alert-li" style={{ color: "var(--stone)" }}>
               <span>🎯</span>
               <span>
-                Faltam {brl(gap)} para a meta. No ritmo atual o mês fecha em ~{pacePct}% ({brl(paceProjection)});
+                Faltam {brl(gap)} para a meta. No ritmo atual o mês fecha em {paceLabel}{earlyMonth ? " (início de mês — projeção ainda instável)" : ` (${brl(paceProjection)})`};
                 pipeline ponderado cobre {brl(intel.pipeline)}{intel.pipeline < gap ? " — abaixo do necessário: priorize propostas e assinaturas" : " — dá para bater, é fechar o que está na mesa"}.
               </span>
             </li>
