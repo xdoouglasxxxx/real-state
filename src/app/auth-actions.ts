@@ -135,8 +135,8 @@ export async function login(formData: FormData) {
         role: user!.role as SessionRole,
         agentId: user!.agent?.id ?? null,
       });
+      dest = user!.role === "CLIENT" ? "/cliente" : "/painel";
     }
-    dest = user!.role === "CLIENT" ? "/cliente" : "/painel";
   } catch (e) {
     rethrowRedirect(e);
     console.error("login:", e);
