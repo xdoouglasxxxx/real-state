@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireManagerUp } from "@/lib/perm";
 import { prisma } from "@/lib/prisma";
 import { createAgent, toggleAgent } from "./actions";
@@ -47,7 +48,7 @@ export default async function Corretores({ searchParams }: { searchParams: { sal
           <tbody>
             {agents.map((a) => (
               <tr key={a.id} style={{ opacity: a.isActive ? 1 : 0.45 }}>
-                <td>{a.name}</td>
+                <td><Link href={`/painel/corretores/${a.id}`} style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>{a.name}</Link></td>
                 <td>{a.creci ?? "—"}</td>
                 <td>{a.phone ?? "—"}</td>
                 <td>{a._count.leads}</td>

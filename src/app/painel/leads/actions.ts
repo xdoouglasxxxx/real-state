@@ -3,7 +3,10 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requirePanel, requireManagerUp } from "@/lib/perm";
+import { requirePanel, requireManagerUp, type PanelContext } from "@/lib/perm";
+
+/** Autor das ações — vai na timeline (auditoria leve: quem fez o quê). */
+const author = (ctx: PanelContext) => (ctx.master ? "Master (plataforma)" : ctx.email);
 
 /** Kanban: mover lead de estágio (chamado pelo drag-and-drop).
  *  Corretor só move os PRÓPRIOS leads. */
@@ -16,7 +19,7 @@ export async function moveLeadStage(leadId: string, stage: string) {
     if (!lead || lead.stage === stage) return;
     await prisma.lead.update({ where: { id: leadId }, data: { stage: stage as any } });
     await prisma.activity.create({
-      data: { leadId, type: "STAGE_CHANGE", payload: { from: lead.stage, to: stage } },
+      data: { leadId, type: "STAGE_CHANGE", payload: { from: lead.stage, to: stage, by: author(ctx) } },
     });
     revalidatePath("/painel/leads");
     revalidatePath("/painel");
@@ -34,7 +37,7 @@ export async function addLeadNote(formData: FormData) {
       where: { id: leadId, organizationId: ctx.org.id, ...(ctx.isAgent ? { agentId: ctx.agentId ?? "-" } : {}) },
     });
     if (lead) {
-      await prisma.activity.create({ data: { leadId, type: "NOTE", payload: { note } } });
+      await prisma.activity.create({ data: { leadId, type: "NOTE", payload: { note, by: author(ctx) } } });
     }
   } catch (e) { console.error("addLeadNote:", e); }
   revalidatePath(`/painel/leads/${leadId}`);
@@ -53,8 +56,14 @@ export async function assignAgent(formData: FormData) {
       : null;
     if (lead) {
       await prisma.lead.update({ where: { id: leadId }, data: { agentId: agentOk?.id ?? null } });
+      const agentName = agentOk
+        ? (await prisma.agent.findUnique({ where: { id: agentOk.id }, select: { name: true } }))?.name
+        : null;
       await prisma.activity.create({
-        data: { leadId, type: "NOTE", payload: { note: agentOk ? "Lead atribuído a novo corretor" : "Corretor removido" } },
+        data: {
+          leadId, type: "NOTE",
+          payload: { note: agentName ? `Lead atribuído a ${agentName}` : "Corretor removido", by: author(ctx) },
+        },
       });
     }
   } catch (e) { console.error("assignAgent:", e); }
@@ -100,7 +109,7 @@ export async function createManualLead(formData: FormData) {
       },
     });
     await prisma.activity.create({
-      data: { leadId: lead.id, type: "NOTE", payload: { note: "Lead criado manualmente no painel" } },
+      data: { leadId: lead.id, type: "NOTE", payload: { note: "Lead criado manualmente no painel", by: author(ctx) } },
     });
     newLeadId = lead.id;
   } catch (e) {

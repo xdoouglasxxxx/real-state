@@ -91,6 +91,7 @@ export default async function LeadFicha({ params }: { params: { id: string } }) 
                 {a.payload?.from && <p>{STAGE_LABEL[a.payload.from] ?? a.payload.from} → {STAGE_LABEL[a.payload.to] ?? a.payload.to}</p>}
                 {a.payload?.message && <p>{a.payload.message}</p>}
                 {a.payload?.kind && <p>Formulário: {a.payload.kind === "sell" ? "quer vender" : "agendar visita"}</p>}
+                {a.payload?.by && <p style={{ color: "var(--stone)", fontSize: ".78rem" }}>por {a.payload.by}</p>}
               </li>
             ))}
             {lead.activities.length === 0 && <li><p>Sem eventos ainda.</p></li>}

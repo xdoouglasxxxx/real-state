@@ -54,7 +54,10 @@ export async function createVisit(formData: FormData) {
       await prisma.activity.create({
         data: {
           leadId: lead.id, type: "NOTE",
-          payload: { note: `Visita agendada para ${scheduledAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}` },
+          payload: {
+            note: `Visita agendada para ${scheduledAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
+            by: ctx.master ? "Master (plataforma)" : ctx.email,
+          },
         },
       });
       if (["NEW", "CONTACTED"].includes(lead.stage)) {
