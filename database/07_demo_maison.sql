@@ -30,10 +30,10 @@ DELETE FROM "BlogPost"     WHERE "organizationId" = 'org_maison';
 DELETE FROM "Agent"        WHERE "organizationId" = 'org_maison';
 
 -- ---------- ORGANIZAÇÃO (upsert: cria ou atualiza, com login demo) ----------
-INSERT INTO "Organization" (id, name, slug, creci, phone, email, city, state,
+INSERT INTO "Organization" (id, name, slug, creci, phone, email, city,
   "themeInk", "themeBrass", "themeCream", "adminEmail", "panelPassHash", "createdAt", "updatedAt")
 VALUES ('org_maison', 'Maison Estate', 'maison', 'CRECI-SP 45.120-J', '(11) 3040-8800',
-  'contato@maisonestate.com.br', 'São Paulo', 'SP',
+  'contato@maisonestate.com.br', 'São Paulo',
   '#17130e', '#c6a15b', '#f4efe4',
   'demo@maisonestate.com.br', 'f2360852a1e3de04425ffeae2128aa36:3e49e06815d9bba53f89f29f4b1ed00c63b1b17880d7c9db9d8f315c4f17f08c0465965923004a9106b69c64b84aa0975c8424eb6ff6a60c162c9ca05388aa9b', NOW(), NOW())
 ON CONFLICT (id) DO UPDATE SET
@@ -41,8 +41,8 @@ ON CONFLICT (id) DO UPDATE SET
   "panelPassHash" = EXCLUDED."panelPassHash",
   name = EXCLUDED.name, slug = EXCLUDED.slug;
 
-INSERT INTO "Subscription" (id, "organizationId", plan, status, "createdAt", "updatedAt")
-VALUES ('sub_maison', 'org_maison', 'PRO', 'ACTIVE', NOW() - interval '90 days', NOW())
+INSERT INTO "Subscription" (id, "organizationId", plan, status, "createdAt")
+VALUES ('sub_maison', 'org_maison', 'PRO', 'ACTIVE', NOW() - interval '90 days')
 ON CONFLICT ("organizationId") DO UPDATE SET plan = 'PRO', status = 'ACTIVE';
 
 -- ---------- CORRETORES ----------
@@ -86,24 +86,24 @@ INSERT INTO "Property" (id, "organizationId", slug, title, description, type, st
  ARRAY['Vendida em 28 dias'],'dm_ag2',false,NOW() - interval '70 days',NOW() - interval '70 days',NOW());
 
 -- ---------- FOTOS + TOUR ----------
-INSERT INTO "PropertyMedia" ("id","propertyId",kind,url,"sortOrder","uploadedAt") VALUES
-('dm_m1','dm_p1','PHOTO','https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1600&q=80',0,NOW()),
-('dm_m2','dm_p1','PHOTO','https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1600&q=80',1,NOW()),
-('dm_m3','dm_p1','PHOTO','https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1600&q=80',2,NOW()),
-('dm_m4','dm_p1','VIRTUAL_TOUR','https://my.matterport.com/show/?m=zEWsxhZpGba',999,NOW()),
-('dm_m5','dm_p2','PHOTO','https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1600&q=80',0,NOW()),
-('dm_m6','dm_p2','PHOTO','https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=1600&q=80',1,NOW()),
-('dm_m7','dm_p2','PHOTO','https://images.unsplash.com/photo-1600607687644-c7171b42498f?w=1600&q=80',2,NOW()),
-('dm_m8','dm_p3','PHOTO','https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1600&q=80',0,NOW()),
-('dm_m9','dm_p3','PHOTO','https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=1600&q=80',1,NOW()),
-('dm_m10','dm_p3','PHOTO','https://images.unsplash.com/photo-1613977257363-707ba9348227?w=1600&q=80',2,NOW()),
-('dm_m11','dm_p4','PHOTO','https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=1600&q=80',0,NOW()),
-('dm_m12','dm_p4','PHOTO','https://images.unsplash.com/photo-1615873968403-89e068629265?w=1600&q=80',1,NOW()),
-('dm_m13','dm_p5','PHOTO','https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=1600&q=80',0,NOW()),
-('dm_m14','dm_p5','PHOTO','https://images.unsplash.com/photo-1600047509358-9dc75507daeb?w=1600&q=80',1,NOW()),
-('dm_m15','dm_p6','PHOTO','https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=1600&q=80',0,NOW()),
-('dm_m16','dm_p6','PHOTO','https://images.unsplash.com/photo-1600566752355-35792bedcfea?w=1600&q=80',1,NOW()),
-('dm_m17','dm_p7','PHOTO','https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1600&q=80',0,NOW());
+INSERT INTO "PropertyMedia" ("id","propertyId",kind,url,"sortOrder") VALUES
+('dm_m1','dm_p1','PHOTO','https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1600&q=80',0),
+('dm_m2','dm_p1','PHOTO','https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1600&q=80',1),
+('dm_m3','dm_p1','PHOTO','https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1600&q=80',2),
+('dm_m4','dm_p1','VIRTUAL_TOUR','https://my.matterport.com/show/?m=zEWsxhZpGba',999),
+('dm_m5','dm_p2','PHOTO','https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1600&q=80',0),
+('dm_m6','dm_p2','PHOTO','https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=1600&q=80',1),
+('dm_m7','dm_p2','PHOTO','https://images.unsplash.com/photo-1600607687644-c7171b42498f?w=1600&q=80',2),
+('dm_m8','dm_p3','PHOTO','https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1600&q=80',0),
+('dm_m9','dm_p3','PHOTO','https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=1600&q=80',1),
+('dm_m10','dm_p3','PHOTO','https://images.unsplash.com/photo-1613977257363-707ba9348227?w=1600&q=80',2),
+('dm_m11','dm_p4','PHOTO','https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=1600&q=80',0),
+('dm_m12','dm_p4','PHOTO','https://images.unsplash.com/photo-1615873968403-89e068629265?w=1600&q=80',1),
+('dm_m13','dm_p5','PHOTO','https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=1600&q=80',0),
+('dm_m14','dm_p5','PHOTO','https://images.unsplash.com/photo-1600047509358-9dc75507daeb?w=1600&q=80',1),
+('dm_m15','dm_p6','PHOTO','https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=1600&q=80',0),
+('dm_m16','dm_p6','PHOTO','https://images.unsplash.com/photo-1600566752355-35792bedcfea?w=1600&q=80',1),
+('dm_m17','dm_p7','PHOTO','https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1600&q=80',0);
 
 -- ---------- DEPOIMENTOS + BLOG ----------
 INSERT INTO "Testimonial" (id,"organizationId",text,author,context,rating,"createdAt") VALUES
