@@ -714,6 +714,7 @@ export async function getFinance(orgId: string, year: number, month: number, fil
           property: { select: { id: true, title: true } },
           agent: { select: { id: true, name: true } },
           contract: { select: { id: true, proposal: { select: { property: { select: { id: true, title: true } } } } } },
+          documents: { select: { id: true, name: true }, take: 1 },
         },
       }),
       // comissões pendentes (todas) + pagas no mês

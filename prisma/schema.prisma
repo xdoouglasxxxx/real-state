@@ -54,6 +54,7 @@ model Organization {
   blogPosts     BlogPost[]
   testimonials  Testimonial[]
   subscription  Subscription?
+  documents      Document[]
 }
 
 // Domínio próprio por tenant (ex.: www.maisonestate.com.br)
@@ -298,6 +299,11 @@ model Document {
 
   @@index([propertyId])
   @@index([contractId])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploadedBy     String? // rastreabilidade (Onda 4.2)
+  financeEntryId String?
+  financeEntry   FinanceEntry? @relation(fields: [financeEntryId], references: [id], onDelete: SetNull)
 }
 
 enum DocKind {
@@ -541,6 +547,7 @@ model FinanceEntry {
   property       Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   agentId        String?
   agent          Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  documents      Document[]
 }
 
 enum FlowDir {

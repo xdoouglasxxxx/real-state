@@ -102,7 +102,7 @@ export default async function ClientePortal() {
                   <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: ".3rem" }}>
                     {activeContract.documents.map((doc: any) => (
                       <li key={doc.id} style={{ fontSize: ".88rem" }}>
-                        📄 <a href={doc.fileUrl} target="_blank" rel="noopener" style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>{doc.name}</a>
+                        📄 <a href={doc.fileUrl.startsWith("http") ? doc.fileUrl : `/cliente/doc/${doc.id}`} target="_blank" rel="noopener" style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>{doc.name}</a>
                         <span style={{ color: "var(--stone)" }}> · {fmtD(doc.uploadedAt)}</span>
                       </li>
                     ))}

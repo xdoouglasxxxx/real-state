@@ -221,7 +221,7 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
         <p style={{ color: "var(--stone)" }}>Nenhum lançamento com vencimento neste mês — use "Novo lançamento" acima ou navegue entre os meses.</p>
       ) : (
         <table className="table">
-          <thead><tr><th>Venc.</th><th>Descrição</th><th>Categoria</th><th>Imóvel</th><th>Corretor</th><th>Valor</th><th>Status</th><th>Criado por</th><th></th></tr></thead>
+          <thead><tr><th>Venc.</th><th>Descrição</th><th>Categoria</th><th>Imóvel</th><th>Corretor</th><th>Valor</th><th>Status</th><th>📎</th><th>Criado por</th><th></th></tr></thead>
           <tbody>
             {f.entries.map((e: any) => {
               const overdue = !e.paidAt && +new Date(e.dueDate) < Date.now();
@@ -251,6 +251,13 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
                     <span className={"badge-status " + (e.paidAt ? (e.direction === "IN" ? "badge-recebido" : "badge-pago") : overdue ? "badge-vencido" : "badge-previsto")}>
                       {e.paidAt ? (e.direction === "IN" ? "Recebido" : "Pago") : overdue ? "Vencido" : "Previsto"}
                     </span>
+                  </td>
+                  <td>
+                    {e.documents?.[0] ? (
+                      <a href={`/painel/documentos/${e.documents[0].id}/baixar`} target="_blank" rel="noopener" title={e.documents[0].name}>📎</a>
+                    ) : (
+                      <Link href="/painel/documentos" title="Anexar comprovante" style={{ color: "var(--stone)" }}>＋</Link>
+                    )}
                   </td>
                   <td style={{ color: "var(--stone)", fontSize: ".8rem" }}>{e.createdBy ?? "—"}</td>
                   <td>

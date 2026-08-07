@@ -61,6 +61,7 @@ export default async function PainelLayout({ children }: { children: React.React
         <Link className="panel-link" href="/painel/agenda">{isAgent ? "Minha agenda" : "Agenda"}<Badge n={badges.visitsToday} title="Visitas hoje" /></Link>
         <Link className="panel-link" href="/painel/imoveis">Imóveis</Link>
         {!isAgent && <Link className="panel-link" href="/painel/corretores">Corretores</Link>}
+        {!isAgent && <Link className="panel-link" href="/painel/documentos">Documentos</Link>}
         {isAdmin && <Link className="panel-link" href="/painel/financeiro">Financeiro</Link>}
         {isAdmin && <Link className="panel-link" href="/painel/usuarios">Usuários</Link>}
         {isAdmin && <Link className="panel-link" href="/painel/assinatura">Assinatura</Link>}

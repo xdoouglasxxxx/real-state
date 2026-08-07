@@ -5,6 +5,7 @@ import { getAgents, getPanelProperty } from "@/lib/data";
 import { setPropertyStatus } from "@/app/painel/actions";
 import PropertyForm from "@/components/painel/PropertyForm";
 import FinancingSimulator from "@/components/painel/FinancingSimulator";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,58 @@ export default async function EditarImovel({
       <PropertyForm property={property} agents={agents as any} erro={searchParams.erro} />
 
       <FinancingSimulator price={Number((property as any).price ?? 0)} />
+
+      <JuridicalDocs propertyId={(property as any).id} />
     </>
+  );
+}
+
+
+/** Documentação jurídica do imóvel: badges de presença + lista dos arquivos. */
+async function JuridicalDocs({ propertyId }: { propertyId: string }) {
+  let docs: any[] = [];
+  if (process.env.DATABASE_URL) {
+    try {
+      docs = await prisma.document.findMany({
+        where: { propertyId },
+        orderBy: { uploadedAt: "desc" },
+        select: { id: true, name: true, kind: true, fileUrl: true, uploadedAt: true },
+      });
+    } catch {}
+  }
+  const has = (k: string) => docs.some((d) => d.kind === k);
+  const CORE: [string, string][] = [["MATRICULA", "Matrícula"], ["IPTU", "IPTU"], ["ESCRITURA", "Escritura"], ["ONUS", "Certidão de ônus"]];
+  const missing = CORE.filter(([k]) => !has(k));
+
+  return (
+    <section className="ficha-box" style={{ marginTop: "1.4rem" }}>
+      <h2>📁 Documentação jurídica</h2>
+      <p style={{ display: "flex", gap: ".45rem", flexWrap: "wrap", margin: ".6rem 0 .8rem" }}>
+        {CORE.map(([k, label]) => (
+          <span key={k} className="pill" style={has(k) ? { borderColor: "#425c3c", color: "#8fbb7d" } : { borderColor: "#7a6538", color: "#d0a94e" }}>
+            {label} {has(k) ? "✅" : "🟡"}
+          </span>
+        ))}
+      </p>
+      {missing.length > 0 && (
+        <p style={{ color: "var(--stone)", fontSize: ".85rem", marginBottom: ".8rem" }}>
+          ⚠ Pendente: {missing.map(([, l]) => l).join(", ")} — não inicie negociação sem regularizar; anexe em Documentos.
+        </p>
+      )}
+      {docs.length > 0 && (
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: ".35rem" }}>
+          {docs.map((d) => (
+            <li key={d.id} style={{ fontSize: ".88rem" }}>
+              📄 <a href={d.fileUrl.startsWith("http") ? d.fileUrl : `/painel/documentos/${d.id}/baixar`} target="_blank" rel="noopener"
+                    style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>{d.name}</a>
+              <span style={{ color: "var(--stone)" }}> · {new Date(d.uploadedAt).toLocaleDateString("pt-BR")}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p style={{ marginTop: ".8rem" }}>
+        <Link className="btn-outline" href="/painel/documentos">Gerenciar documentos</Link>
+      </p>
+    </section>
   );
 }
