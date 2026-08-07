@@ -12,6 +12,7 @@
 -- ---------- LIMPEZA (ordem segura de FKs) ----------
 DELETE FROM "Commission"   WHERE "organizationId" = 'org_maison';
 DELETE FROM "FinanceEntry" WHERE "organizationId" = 'org_maison';
+DELETE FROM "Document"     WHERE "contractId" IN (SELECT id FROM "Contract" WHERE "organizationId" = 'org_maison');
 DELETE FROM "Contract"     WHERE "organizationId" = 'org_maison';
 DELETE FROM "Proposal"     WHERE "organizationId" = 'org_maison';
 DELETE FROM "Visit"        WHERE "organizationId" = 'org_maison';
@@ -20,7 +21,7 @@ DELETE FROM "Favorite"     WHERE "contactId" IN (SELECT id FROM "Contact" WHERE 
 DELETE FROM "Lead"         WHERE "organizationId" = 'org_maison';
 DELETE FROM "PropertyEvent" WHERE "propertyId" IN (SELECT id FROM "Property" WHERE "organizationId" = 'org_maison');
 DELETE FROM "PropertyMedia" WHERE "propertyId" IN (SELECT id FROM "Property" WHERE "organizationId" = 'org_maison');
-DELETE FROM "Document"     WHERE "organizationId" = 'org_maison';
+DELETE FROM "Document"     WHERE "propertyId" IN (SELECT id FROM "Property" WHERE "organizationId" = 'org_maison');
 DELETE FROM "Property"     WHERE "organizationId" = 'org_maison';
 DELETE FROM "Contact"      WHERE "organizationId" = 'org_maison';
 DELETE FROM "Goal"         WHERE "organizationId" = 'org_maison';
