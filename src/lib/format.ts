@@ -1,6 +1,14 @@
 export const brl = (v: number | string | null | undefined) =>
   Number(v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
+/** Moeda compacta para KPIs: R$ 610,3 mi · R$ 1,2 bi · abaixo de 1 mi usa o formato cheio */
+export const brlCompact = (v: number | string | null | undefined) => {
+  const n = Number(v ?? 0);
+  if (Math.abs(n) >= 1e9) return `R$ ${(n / 1e9).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} bi`;
+  if (Math.abs(n) >= 1e6) return `R$ ${(n / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+  return brl(n);
+};
+
 export const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Rascunho", FOR_SALE: "À venda", EXCLUSIVE: "Exclusivo",
   RESERVED: "Reservado", SOLD: "Vendido", ARCHIVED: "Arquivado",

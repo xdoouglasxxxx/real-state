@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requirePanel } from "@/lib/perm";
 import { getDashboard, getAgentDashboard, getDashboardIntel } from "@/lib/data";
-import { brl } from "@/lib/format";
+import { brl, brlCompact } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -106,7 +106,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { nega
       {/* ---- KPIs com variação ---- */}
       <div className="kpis">
         <div className="kpi">
-          <strong>{brl(d.availableValue)}</strong>
+          <strong>{brlCompact(d.availableValue)}</strong>
           <span>em imóveis disponíveis ({d.availableCount})</span>
         </div>
         <div className="kpi">
@@ -135,7 +135,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { nega
         </div>
         <div className="kpi">
           <strong>{d.goalPct}%</strong>
-          <span>meta do mês · {brl(d.realizado)} de {brl(d.meta)}</span>
+          <span>meta do mês · {brlCompact(d.realizado)} de {brlCompact(d.meta)}</span>
           <div className="meta-bar"><i style={{ width: `${d.goalPct}%` }} /></div>
         </div>
       </div>
