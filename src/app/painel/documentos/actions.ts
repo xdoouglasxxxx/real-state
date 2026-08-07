@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireManagerUp, requireAdmin } from "@/lib/perm";
 import { storageEnabled, signedUploadUrl, deleteObject, safeFileName } from "@/lib/storage";
 
-export const DOC_KINDS = ["MATRICULA", "IPTU", "ESCRITURA", "ONUS", "LAUDO", "CONTRATO", "COMPROVANTE", "RG", "CPF", "OUTRO"] as const;
+const DOC_KINDS = ["MATRICULA", "IPTU", "ESCRITURA", "ONUS", "LAUDO", "CONTRATO", "PROCURACAO", "COMPROVANTE", "RG", "CPF", "OUTRO"] as const;
 
 /** Passo 1 (chamado pelo uploader): gera a URL assinada para o navegador
  *  enviar o arquivo DIRETO ao bucket — o PDF nunca passa pelo nosso servidor. */
@@ -42,7 +42,7 @@ export async function registerDocument(input: {
         propertyId: propOk?.id ?? null,
         contractId: contractOk?.id ?? null,
         financeEntryId: finOk?.id ?? null,
-        kind, name,
+        kind: kind as any, name,
         fileUrl: input.path, // caminho no bucket (download sempre via URL assinada)
         uploadedBy: ctx.master ? "Master (plataforma)" : ctx.email,
       },

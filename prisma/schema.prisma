@@ -313,6 +313,10 @@ enum DocKind {
   CONTRATO
   PROCURACAO
   LAUDO
+  ONUS
+  COMPROVANTE
+  RG
+  CPF
   OUTRO
 }
 
