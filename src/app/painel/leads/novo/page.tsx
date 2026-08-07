@@ -13,7 +13,8 @@ export default async function NovoLead({ searchParams }: { searchParams: { erro?
     <>
       <Link className="back" href="/painel/leads">← Voltar ao funil</Link>
       <h1>Novo lead</h1>
-      {searchParams.erro && <p className="pform-error">Preencha nome e telefone.</p>}
+      {searchParams.erro === "1" && <p className="pform-error">Preencha nome e telefone.</p>}
+      {searchParams.erro === "2" && <p className="pform-error">Erro ao salvar no banco. Tente de novo — se persistir, veja os Logs.</p>}
 
       <form action={createManualLead} className="pform" style={{ maxWidth: 720 }}>
         <section>

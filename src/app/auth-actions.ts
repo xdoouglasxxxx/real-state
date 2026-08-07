@@ -4,6 +4,11 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword, createSession, destroySession, setTenantPreview } from "@/lib/auth";
 
+/** redirect() lança exceção de controle; se cair num catch, precisa ser relançada. */
+const rethrowRedirect = (e: unknown) => {
+  if (e && typeof e === "object" && "digest" in e && String((e as any).digest).startsWith("NEXT_REDIRECT")) throw e;
+};
+
 const slugify = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
    .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "imobiliaria";
@@ -50,6 +55,7 @@ export async function createTenant(formData: FormData) {
     setTenantPreview(org.slug);
     createSession({ orgId: org.id, email });
   } catch (e) {
+    rethrowRedirect(e);
     console.error("createTenant:", e);
     redirect("/criar?erro=interno");
   }
@@ -89,6 +95,7 @@ export async function login(formData: FormData) {
     setTenantPreview(org!.slug);
     createSession({ orgId: org!.id, email, master: Boolean(masterOk) });
   } catch (e) {
+    rethrowRedirect(e);
     console.error("login:", e);
     redirect("/login?erro=1");
   }

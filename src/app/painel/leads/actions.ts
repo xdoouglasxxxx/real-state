@@ -69,6 +69,8 @@ export async function createManualLead(formData: FormData) {
   const phone = String(formData.get("phone") ?? "").trim();
   if (!name || !phone) redirect("/painel/leads/novo?erro=1");
 
+  // NOTA: redirect() do Next lança exceção de controle — NUNCA dentro de try/catch.
+  let newLeadId: string | null = null;
   try {
     const existing = await prisma.contact.findFirst({ where: { organizationId: org.id, phone } });
     const contact = existing ?? (await prisma.contact.create({
@@ -88,10 +90,10 @@ export async function createManualLead(formData: FormData) {
     await prisma.activity.create({
       data: { leadId: lead.id, type: "NOTE", payload: { note: "Lead criado manualmente no painel" } },
     });
-    revalidatePath("/painel/leads");
-    redirect(`/painel/leads/${lead.id}`);
+    newLeadId = lead.id;
   } catch (e) {
     console.error("createManualLead:", e);
-    redirect("/painel/leads/novo?erro=2");
   }
+  revalidatePath("/painel/leads");
+  redirect(newLeadId ? `/painel/leads/${newLeadId}` : "/painel/leads/novo?erro=2");
 }
