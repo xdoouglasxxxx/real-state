@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getTenant } from "@/lib/tenant";
+import { requirePanel } from "@/lib/perm";
 import { getPanelProperties, getSubscriptionInfo } from "@/lib/data";
 import { getPlan, fmtLimit } from "@/lib/plans";
 import { brl, STATUS_LABEL } from "@/lib/format";
@@ -7,7 +7,8 @@ import { brl, STATUS_LABEL } from "@/lib/format";
 export const dynamic = "force-dynamic";
 
 export default async function PainelImoveis({ searchParams }: { searchParams: { demo?: string } }) {
-  const org = await getTenant();
+  const ctx = await requirePanel();
+  const org = ctx.org;
   const [rows, sub] = await Promise.all([getPanelProperties(org.id), getSubscriptionInfo(org.id)]);
   const plan = getPlan(sub.plan);
 
@@ -17,7 +18,7 @@ export default async function PainelImoveis({ searchParams }: { searchParams: { 
         <h1>Imóveis</h1>
         <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
           <span className="pill">{sub.propertyCount} / {fmtLimit(plan.maxProperties)} imóveis · plano {plan.label}</span>
-          <Link className="btn-solid" href="/painel/imoveis/novo">＋ Novo imóvel</Link>
+          {!ctx.isAgent && <Link className="btn-solid" href="/painel/imoveis/novo">＋ Novo imóvel</Link>}
         </div>
       </div>
 

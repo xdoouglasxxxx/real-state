@@ -1,11 +1,11 @@
-import { getTenant } from "@/lib/tenant";
+import { requireManagerUp } from "@/lib/perm";
 import { prisma } from "@/lib/prisma";
 import { createAgent, toggleAgent } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function Corretores({ searchParams }: { searchParams: { salvo?: string; erro?: string } }) {
-  const org = await getTenant();
+  const { org } = await requireManagerUp();
   let agents: any[] = [];
   try {
     agents = await prisma.agent.findMany({

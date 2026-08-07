@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { getTenant } from "@/lib/tenant";
+import { requireManagerUp } from "@/lib/perm";
 import { getAgents } from "@/lib/data";
 import PropertyForm from "@/components/painel/PropertyForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function NovoImovel({ searchParams }: { searchParams: { erro?: string } }) {
-  const org = await getTenant();
+  const { org } = await requireManagerUp();
   const agents = await getAgents(org.id);
   return (
     <>

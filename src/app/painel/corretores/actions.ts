@@ -3,13 +3,11 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getTenant } from "@/lib/tenant";
-import { getSession } from "@/lib/auth";
+import { requireManagerUp } from "@/lib/perm";
 
+// Corretores são cadastrados por gerente ou admin
 async function guard() {
-  const org = await getTenant();
-  const session = getSession();
-  if (!session || (!session.master && session.orgId !== org.id)) redirect("/login");
+  const { org } = await requireManagerUp();
   return org;
 }
 

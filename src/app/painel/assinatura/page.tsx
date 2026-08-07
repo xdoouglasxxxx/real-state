@@ -1,11 +1,11 @@
-import { getTenant } from "@/lib/tenant";
+import { requireAdmin } from "@/lib/perm";
 import { getSubscriptionInfo } from "@/lib/data";
 import { PLANS, getPlan, fmtPrice, fmtLimit, type PlanId } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 
 export default async function Assinatura({ searchParams }: { searchParams: { limite?: string } }) {
-  const org = await getTenant();
+  const { org } = await requireAdmin();
   const info = await getSubscriptionInfo(org.id);
   const current = getPlan(info.plan);
   const usagePct = current.maxProperties === Infinity

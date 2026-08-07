@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getTenant } from "@/lib/tenant";
+import { requireManagerUp } from "@/lib/perm";
 import { getPlan } from "@/lib/plans";
 
 const slugify = (s: string) =>
@@ -18,7 +18,7 @@ const num = (v: FormDataEntryValue | null) => {
 
 /** Cria ou atualiza um imóvel (com fotos e tour) e revalida site + painel. */
 export async function saveProperty(formData: FormData) {
-  const org = await getTenant();
+  const { org } = await requireManagerUp(); // corretor não edita o estoque
   if (!process.env.DATABASE_URL || org.id === "demo") redirect("/painel/imoveis?demo=1");
 
   const id = String(formData.get("id") ?? "");
@@ -125,14 +125,20 @@ export async function saveProperty(formData: FormData) {
 
 /** Muda o status (pausar, marcar vendido, republicar, arquivar). */
 export async function setPropertyStatus(formData: FormData) {
-  const org = await getTenant();
+  const { org } = await requireManagerUp();
   if (!process.env.DATABASE_URL || org.id === "demo") redirect("/painel/imoveis?demo=1");
 
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "FOR_SALE") as any;
 
+  // Blindagem: o imóvel precisa ser DESTE tenant (fora do try — redirect!)
+  let before: { status: any; publishedAt: Date | null } | null = null;
   try {
-    const before = await prisma.property.findUnique({ where: { id }, select: { status: true, publishedAt: true } });
+    before = await prisma.property.findFirst({ where: { id, organizationId: org.id }, select: { status: true, publishedAt: true } });
+  } catch (e) { console.error("setPropertyStatus(find):", e); }
+  if (!before) redirect("/painel/imoveis");
+
+  try {
     await prisma.property.update({
       where: { id },
       data: {

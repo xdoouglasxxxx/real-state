@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getTenant } from "@/lib/tenant";
 import { getSession } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { logout } from "@/app/auth-actions";
 
 export const metadata: Metadata = { title: "Painel", robots: { index: false, follow: false } };
@@ -15,19 +16,41 @@ export default async function PainelLayout({ children }: { children: React.React
   const authorized = session && (session.master || session.orgId === org.id);
   if (!authorized && process.env.DATABASE_URL) redirect("/login");
 
+  // Usuário desativado perde o acesso mesmo com cookie válido
+  if (session?.userId && process.env.DATABASE_URL) {
+    try {
+      const u = await prisma.user.findFirst({
+        where: { id: session.userId, organizationId: session.orgId },
+        select: { isActive: true },
+      });
+      if (!u?.isActive) redirect("/login?erro=1");
+    } catch (e) {
+      if (e && typeof e === "object" && "digest" in e) throw e; // relança o redirect
+    }
+  }
+
+  // Papel: sessões antigas (sem role) eram sempre do admin
+  const role = session?.master ? "ORG_ADMIN" : session?.role ?? "ORG_ADMIN";
+  const isAdmin = session?.master || role === "ORG_ADMIN";
+  const isAgent = !session?.master && role === "AGENT";
+
   const [first, ...rest] = org.name.toUpperCase().split(" ");
   return (
     <div className="panel">
       <aside className="panel-side">
         <Link className="logo" href="/painel">{first} <em>{rest.join(" ") || "ESTATE"}</em></Link>
         <span className="panel-slug">{org.slug}.{process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? ""}</span>
-        <Link className="panel-link" href="/painel">Dashboard</Link>
-        <Link className="panel-link" href="/painel/leads">Leads</Link>
-        <Link className="panel-link" href="/painel/agenda">Agenda</Link>
+
+        <Link className="panel-link" href="/painel">{isAgent ? "Meu painel" : "Dashboard"}</Link>
+        <Link className="panel-link" href="/painel/leads">{isAgent ? "Meus leads" : "Leads"}</Link>
+        <Link className="panel-link" href="/painel/agenda">{isAgent ? "Minha agenda" : "Agenda"}</Link>
         <Link className="panel-link" href="/painel/imoveis">Imóveis</Link>
-        <Link className="panel-link" href="/painel/corretores">Corretores</Link>
-        <Link className="panel-link" href="/painel/assinatura">Assinatura</Link>
-        <Link className="panel-link" href="/painel/configuracoes">Configurações</Link>
+        {!isAgent && <Link className="panel-link" href="/painel/corretores">Corretores</Link>}
+        {isAdmin && <Link className="panel-link" href="/painel/usuarios">Usuários</Link>}
+        {isAdmin && <Link className="panel-link" href="/painel/assinatura">Assinatura</Link>}
+        {isAdmin && <Link className="panel-link" href="/painel/configuracoes">Configurações</Link>}
+        <Link className="panel-link" href="/painel/conta">Minha conta</Link>
+
         <Link className="panel-link" href="/" style={{ marginTop: "auto" }}>← Ver site</Link>
         <form action={logout}>
           <button className="panel-link panel-logout" type="submit">Sair</button>

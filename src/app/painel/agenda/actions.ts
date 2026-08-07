@@ -3,19 +3,12 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getTenant } from "@/lib/tenant";
-import { getSession } from "@/lib/auth";
-
-async function guard() {
-  const org = await getTenant();
-  const session = getSession();
-  if (!session || (!session.master && session.orgId !== org.id)) redirect("/login");
-  return org;
-}
+import { requirePanel } from "@/lib/perm";
 
 /** Agenda uma visita (e move o lead para o estágio VISITA, se fizer sentido). */
 export async function createVisit(formData: FormData) {
-  const org = await guard();
+  const ctx = await requirePanel();
+  const org = ctx.org;
   const leadId = String(formData.get("leadId") ?? "") || null;
   const propertyId = String(formData.get("propertyId") ?? "");
   const when = String(formData.get("scheduledAt") ?? "");
@@ -26,11 +19,15 @@ export async function createVisit(formData: FormData) {
     // Blindagem multi-tenant
     const [property, lead] = await Promise.all([
       prisma.property.findFirst({ where: { id: propertyId, organizationId: org.id } }),
-      leadId ? prisma.lead.findFirst({ where: { id: leadId, organizationId: org.id } }) : null,
+      // Corretor só vincula os PRÓPRIOS leads
+      leadId ? prisma.lead.findFirst({
+        where: { id: leadId, organizationId: org.id, ...(ctx.isAgent ? { agentId: ctx.agentId ?? "-" } : {}) },
+      }) : null,
     ]);
     if (!property) redirect("/painel/agenda/nova?erro=1");
 
-    const rawAgent = String(formData.get("agentId") ?? "");
+    // Corretor logado agenda sempre para si mesmo
+    const rawAgent = ctx.isAgent ? (ctx.agentId ?? "") : String(formData.get("agentId") ?? "");
     const agentOk = rawAgent
       ? await prisma.agent.findFirst({ where: { id: rawAgent, organizationId: org.id }, select: { id: true } })
       : null;
@@ -75,11 +72,15 @@ export async function createVisit(formData: FormData) {
 
 /** Atualiza o status (realizada / não veio / cancelada). */
 export async function setVisitStatus(formData: FormData) {
-  const org = await guard();
+  const ctx = await requirePanel();
+  const org = ctx.org;
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "SCHEDULED") as any;
   try {
-    const visit = await prisma.visit.findFirst({ where: { id, organizationId: org.id } });
+    // Corretor só atualiza as PRÓPRIAS visitas
+    const visit = await prisma.visit.findFirst({
+      where: { id, organizationId: org.id, ...(ctx.isAgent ? { agentId: ctx.agentId ?? "-" } : {}) },
+    });
     if (visit) {
       await prisma.visit.update({ where: { id }, data: { status } });
       if (visit.leadId) {

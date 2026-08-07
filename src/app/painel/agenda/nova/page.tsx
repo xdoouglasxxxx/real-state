@@ -1,14 +1,16 @@
 import Link from "next/link";
-import { getTenant } from "@/lib/tenant";
+import { requirePanel } from "@/lib/perm";
 import { getAgents, getPanelProperties, getLeadsBoardFull } from "@/lib/data";
 import { createVisit } from "../actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function NovaVisita({ searchParams }: { searchParams: { erro?: string; lead?: string } }) {
-  const org = await getTenant();
+  const ctx = await requirePanel();
+  const org = ctx.org;
   const [agents, allProperties, leads] = await Promise.all([
-    getAgents(org.id), getPanelProperties(org.id), getLeadsBoardFull(org.id),
+    getAgents(org.id), getPanelProperties(org.id),
+    getLeadsBoardFull(org.id, ctx.isAgent ? ctx.agentId ?? "-" : null),
   ]);
   // só faz sentido visitar o que está disponível
   const properties = (allProperties as any[]).filter((p) => !["SOLD", "ARCHIVED"].includes(p.status));
@@ -41,12 +43,18 @@ export default async function NovaVisita({ searchParams }: { searchParams: { err
             <label className="span2">Data e hora*
               <input type="datetime-local" name="scheduledAt" required />
             </label>
-            <label className="span2">Corretor
-              <select name="agentId" defaultValue="">
-                <option value="">— Usar o corretor do lead —</option>
-                {agents.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
-            </label>
+            {ctx.isAgent ? (
+              <label className="span2">Corretor
+                <input value="Você (automático)" disabled />
+              </label>
+            ) : (
+              <label className="span2">Corretor
+                <select name="agentId" defaultValue="">
+                  <option value="">— Usar o corretor do lead —</option>
+                  {agents.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </label>
+            )}
           </div>
         </section>
         <div className="pform-footer">

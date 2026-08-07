@@ -1,12 +1,13 @@
 import Link from "next/link";
-import { getTenant } from "@/lib/tenant";
+import { requirePanel } from "@/lib/perm";
 import { getAgents, getPanelProperties } from "@/lib/data";
 import { createManualLead } from "../actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function NovoLead({ searchParams }: { searchParams: { erro?: string } }) {
-  const org = await getTenant();
+  const ctx = await requirePanel();
+  const org = ctx.org;
   const [agents, properties] = await Promise.all([getAgents(org.id), getPanelProperties(org.id)]);
 
   return (
@@ -33,12 +34,18 @@ export default async function NovoLead({ searchParams }: { searchParams: { erro?
                 <option value="OUTRO">Outro</option>
               </select>
             </label>
-            <label>Corretor
-              <select name="agentId" defaultValue="">
-                <option value="">— Sem corretor —</option>
-                {agents.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
-            </label>
+            {ctx.isAgent ? (
+              <label>Corretor
+                <input value="Você (automático)" disabled />
+              </label>
+            ) : (
+              <label>Corretor
+                <select name="agentId" defaultValue="">
+                  <option value="">— Sem corretor —</option>
+                  {agents.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </label>
+            )}
             <label className="span2">Imóvel de interesse
               <select name="propertyId" defaultValue="">
                 <option value="">— Nenhum específico —</option>

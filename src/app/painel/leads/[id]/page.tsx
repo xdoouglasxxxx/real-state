@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getTenant } from "@/lib/tenant";
+import { requirePanel } from "@/lib/perm";
 import { getLeadDetail, getAgents } from "@/lib/data";
 import { addLeadNote, assignAgent } from "../actions";
 import { STAGE_LABEL, SOURCE_LABEL } from "@/lib/format";
@@ -14,8 +14,13 @@ const ACT_LABEL: Record<string, string> = {
 };
 
 export default async function LeadFicha({ params }: { params: { id: string } }) {
-  const org = await getTenant();
-  const [lead, agents] = await Promise.all([getLeadDetail(org.id, params.id), getAgents(org.id)]);
+  const ctx = await requirePanel();
+  const org = ctx.org;
+  // Corretor só abre a ficha dos PRÓPRIOS leads (agentId "-" nunca casa = nega)
+  const [lead, agents] = await Promise.all([
+    getLeadDetail(org.id, params.id, ctx.isAgent ? ctx.agentId ?? "-" : null),
+    getAgents(org.id),
+  ]);
   if (!lead) notFound();
 
   const phone = lead.contact?.phone ?? "";
@@ -51,14 +56,18 @@ export default async function LeadFicha({ params }: { params: { id: string } }) 
 
           <section className="ficha-box">
             <h2>Corretor responsável</h2>
-            <form action={assignAgent} className="form">
-              <input type="hidden" name="leadId" value={lead.id} />
-              <select name="agentId" defaultValue={lead.agentId ?? ""}>
-                <option value="">— Sem corretor —</option>
-                {agents.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
-              <button className="btn-outline" type="submit">Salvar corretor</button>
-            </form>
+            {ctx.isAgent ? (
+              <p>{lead.agent?.name ?? "—"} <span style={{ color: "var(--stone)", fontSize: ".85rem" }}>(redistribuição é feita pelo gerente)</span></p>
+            ) : (
+              <form action={assignAgent} className="form">
+                <input type="hidden" name="leadId" value={lead.id} />
+                <select name="agentId" defaultValue={lead.agentId ?? ""}>
+                  <option value="">— Sem corretor —</option>
+                  {agents.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+                <button className="btn-outline" type="submit">Salvar corretor</button>
+              </form>
+            )}
           </section>
 
           <section className="ficha-box">

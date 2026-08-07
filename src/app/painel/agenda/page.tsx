@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getTenant } from "@/lib/tenant";
+import { requirePanel } from "@/lib/perm";
 import { getVisits } from "@/lib/data";
 import { setVisitStatus } from "./actions";
 
@@ -15,8 +15,9 @@ const fmtHour = (d: Date) =>
   d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 
 export default async function Agenda({ searchParams }: { searchParams: { salvo?: string } }) {
-  const org = await getTenant();
-  const visits = await getVisits(org.id);
+  const ctx = await requirePanel();
+  // Corretor vê apenas as visitas atribuídas a ele
+  const visits = await getVisits(ctx.org.id, ctx.isAgent ? ctx.agentId ?? "-" : null);
 
   // agrupar por dia
   const groups = new Map<string, typeof visits>();
@@ -37,7 +38,7 @@ export default async function Agenda({ searchParams }: { searchParams: { salvo?:
   return (
     <>
       <div className="phead">
-        <h1>Agenda de visitas</h1>
+        <h1>{ctx.isAgent ? "Minha agenda" : "Agenda de visitas"}</h1>
         <Link className="btn-solid" href="/painel/agenda/nova">＋ Agendar visita</Link>
       </div>
       {searchParams.salvo && <p className="ok" style={{ marginBottom: "1rem" }}>✔ Visita agendada — o lead foi movido para "Visita" no funil.</p>}

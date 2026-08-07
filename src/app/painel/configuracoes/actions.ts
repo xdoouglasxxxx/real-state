@@ -3,13 +3,10 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getTenant } from "@/lib/tenant";
-import { getSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/perm";
 
 export async function updateOrganization(formData: FormData) {
-  const org = await getTenant();
-  const session = getSession();
-  if (!session || (!session.master && session.orgId !== org.id)) redirect("/login");
+  const { org } = await requireAdmin();
 
   try {
     await prisma.organization.update({

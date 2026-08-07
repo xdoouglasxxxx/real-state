@@ -3,21 +3,16 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getTenant } from "@/lib/tenant";
-import { getSession } from "@/lib/auth";
+import { requirePanel, requireManagerUp } from "@/lib/perm";
 
-async function guard() {
-  const org = await getTenant();
-  const session = getSession();
-  if (!session || (!session.master && session.orgId !== org.id)) redirect("/login");
-  return org;
-}
-
-/** Kanban: mover lead de estágio (chamado pelo drag-and-drop). */
+/** Kanban: mover lead de estágio (chamado pelo drag-and-drop).
+ *  Corretor só move os PRÓPRIOS leads. */
 export async function moveLeadStage(leadId: string, stage: string) {
-  const org = await guard();
+  const ctx = await requirePanel();
   try {
-    const lead = await prisma.lead.findFirst({ where: { id: leadId, organizationId: org.id } });
+    const lead = await prisma.lead.findFirst({
+      where: { id: leadId, organizationId: ctx.org.id, ...(ctx.isAgent ? { agentId: ctx.agentId ?? "-" } : {}) },
+    });
     if (!lead || lead.stage === stage) return;
     await prisma.lead.update({ where: { id: leadId }, data: { stage: stage as any } });
     await prisma.activity.create({
@@ -28,14 +23,16 @@ export async function moveLeadStage(leadId: string, stage: string) {
   } catch (e) { console.error("moveLeadStage:", e); }
 }
 
-/** Ficha: anotação na timeline. */
+/** Ficha: anotação na timeline. Corretor só anota nos próprios leads. */
 export async function addLeadNote(formData: FormData) {
-  const org = await guard();
+  const ctx = await requirePanel();
   const leadId = String(formData.get("leadId") ?? "");
   const note = String(formData.get("note") ?? "").trim();
   if (!leadId || !note) redirect(`/painel/leads/${leadId}`);
   try {
-    const lead = await prisma.lead.findFirst({ where: { id: leadId, organizationId: org.id } });
+    const lead = await prisma.lead.findFirst({
+      where: { id: leadId, organizationId: ctx.org.id, ...(ctx.isAgent ? { agentId: ctx.agentId ?? "-" } : {}) },
+    });
     if (lead) {
       await prisma.activity.create({ data: { leadId, type: "NOTE", payload: { note } } });
     }
@@ -44,15 +41,15 @@ export async function addLeadNote(formData: FormData) {
   redirect(`/painel/leads/${leadId}`);
 }
 
-/** Ficha: atribuir/trocar corretor (distribuição manual). */
+/** Ficha: atribuir/trocar corretor (só gerente ou admin — corretor não redistribui). */
 export async function assignAgent(formData: FormData) {
-  const org = await guard();
+  const ctx = await requireManagerUp();
   const leadId = String(formData.get("leadId") ?? "");
   const rawAgent = String(formData.get("agentId") ?? "");
   try {
-    const lead = await prisma.lead.findFirst({ where: { id: leadId, organizationId: org.id } });
+    const lead = await prisma.lead.findFirst({ where: { id: leadId, organizationId: ctx.org.id } });
     const agentOk = rawAgent
-      ? await prisma.agent.findFirst({ where: { id: rawAgent, organizationId: org.id }, select: { id: true } })
+      ? await prisma.agent.findFirst({ where: { id: rawAgent, organizationId: ctx.org.id }, select: { id: true } })
       : null;
     if (lead) {
       await prisma.lead.update({ where: { id: leadId }, data: { agentId: agentOk?.id ?? null } });
@@ -65,9 +62,10 @@ export async function assignAgent(formData: FormData) {
   redirect(`/painel/leads/${leadId}`);
 }
 
-/** Criar lead manualmente (telefone, balcão, indicação...). */
+/** Criar lead manualmente (telefone, balcão, indicação...).
+ *  Corretor cria, mas o lead entra automaticamente na carteira DELE. */
 export async function createManualLead(formData: FormData) {
-  const org = await guard();
+  const ctx = await requirePanel();
   const name = String(formData.get("name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
   if (!name || !phone) redirect("/painel/leads/novo?erro=1");
@@ -75,21 +73,22 @@ export async function createManualLead(formData: FormData) {
   // NOTA: redirect() do Next lança exceção de controle — NUNCA dentro de try/catch.
   let newLeadId: string | null = null;
   try {
-    // Blindagem: só aceita corretor/imóvel que pertençam a ESTE tenant
-    const rawAgent = String(formData.get("agentId") ?? "");
+    // Blindagem: só aceita corretor/imóvel que pertençam a ESTE tenant.
+    // Corretor logado não escolhe: o lead é sempre dele.
+    const rawAgent = ctx.isAgent ? (ctx.agentId ?? "") : String(formData.get("agentId") ?? "");
     const rawProperty = String(formData.get("propertyId") ?? "");
     const [agentOk, propertyOk] = await Promise.all([
-      rawAgent ? prisma.agent.findFirst({ where: { id: rawAgent, organizationId: org.id }, select: { id: true } }) : null,
-      rawProperty ? prisma.property.findFirst({ where: { id: rawProperty, organizationId: org.id }, select: { id: true } }) : null,
+      rawAgent ? prisma.agent.findFirst({ where: { id: rawAgent, organizationId: ctx.org.id }, select: { id: true } }) : null,
+      rawProperty ? prisma.property.findFirst({ where: { id: rawProperty, organizationId: ctx.org.id }, select: { id: true } }) : null,
     ]);
 
-    const existing = await prisma.contact.findFirst({ where: { organizationId: org.id, phone } });
+    const existing = await prisma.contact.findFirst({ where: { organizationId: ctx.org.id, phone } });
     const contact = existing ?? (await prisma.contact.create({
-      data: { organizationId: org.id, name, phone, kind: "BUYER" },
+      data: { organizationId: ctx.org.id, name, phone, kind: "BUYER" },
     }));
     const lead = await prisma.lead.create({
       data: {
-        organizationId: org.id,
+        organizationId: ctx.org.id,
         contactId: contact.id,
         agentId: agentOk?.id ?? null,
         propertyId: propertyOk?.id ?? null,

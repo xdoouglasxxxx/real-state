@@ -1,12 +1,48 @@
-import { getTenant } from "@/lib/tenant";
-import { getDashboard } from "@/lib/data";
+import { requirePanel } from "@/lib/perm";
+import { getDashboard, getAgentDashboard } from "@/lib/data";
 import { brl } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-export default async function Dashboard() {
-  const org = await getTenant();
-  const d = await getDashboard(org.id);
+export default async function Dashboard({ searchParams }: { searchParams: { negado?: string; bemvindo?: string } }) {
+  const ctx = await requirePanel();
+
+  // -------- Portal do Corretor: números só DELE --------
+  if (ctx.isAgent && ctx.agentId) {
+    const d = await getAgentDashboard(ctx.org.id, ctx.agentId);
+    const KPIS: [string, string][] = [
+      [String(d.activeLeads), "leads ativos comigo"],
+      [String(d.newLeadsMonth), "novos leads no mês"],
+      [String(d.scheduledVisits), "visitas agendadas"],
+      [String(d.myProperties), "imóveis sob minha carteira"],
+      [brl(d.commissionPending), "comissões a receber"],
+      [brl(d.commissionPaidMonth), "comissões pagas no mês"],
+    ];
+    return (
+      <>
+        <h1>Meu painel</h1>
+        {searchParams.negado && <p className="pform-error">Você não tem permissão para acessar aquela área.</p>}
+        <div className="kpis">
+          {KPIS.map(([n, l]) => (
+            <div className="kpi" key={l}><strong>{n}</strong><span>{l}</span></div>
+          ))}
+          {d.meta > 0 && (
+            <div className="kpi">
+              <strong>{d.goalPct}%</strong>
+              <span>minha meta do mês · {brl(d.realizado)} de {brl(d.meta)}</span>
+              <div className="meta-bar"><i style={{ width: `${d.goalPct}%` }} /></div>
+            </div>
+          )}
+        </div>
+        <p style={{ color: "var(--stone)", fontSize: ".85rem" }}>
+          Estes números são só seus: leads atribuídos a você, sua agenda e suas comissões.
+        </p>
+      </>
+    );
+  }
+
+  // -------- Dashboard da imobiliária (admin/gerente) --------
+  const d = await getDashboard(ctx.org.id);
 
   const KPIS: [string, string][] = [
     [brl(d.availableValue), `em imóveis disponíveis (${d.availableCount})`],
@@ -21,6 +57,7 @@ export default async function Dashboard() {
   return (
     <>
       <h1>Hoje</h1>
+      {searchParams.negado && <p className="pform-error">Você não tem permissão para acessar aquela área.</p>}
       <div className="kpis">
         {KPIS.map(([n, l]) => (
           <div className="kpi" key={l}><strong>{n}</strong><span>{l}</span></div>

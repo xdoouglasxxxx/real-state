@@ -257,7 +257,8 @@ export async function getSubscriptionInfo(orgId: string) {
   } catch { return fallback; }
 }
 
-export async function getLeadsBoardFull(orgId: string) {
+/** agentId (opcional): restringe ao corretor — usado no Portal do Corretor. */
+export async function getLeadsBoardFull(orgId: string, agentId?: string | null) {
   if (!hasDb()) {
     return [
       { id: "1", stage: "FINANCING", source: "INSTAGRAM", name: "Douglas Ferreira", phone: "41999003524", property: "Loft Jardins", agent: "Beatriz Lins", createdAt: new Date() },
@@ -267,7 +268,7 @@ export async function getLeadsBoardFull(orgId: string) {
   }
   try {
     const rows = await prisma.lead.findMany({
-      where: { organizationId: orgId, stage: { notIn: ["LOST"] } },
+      where: { organizationId: orgId, stage: { notIn: ["LOST"] }, ...(agentId ? { agentId } : {}) },
       include: { contact: true, property: true, agent: true },
       orderBy: { updatedAt: "desc" }, take: 300,
     });
@@ -282,11 +283,12 @@ export async function getLeadsBoardFull(orgId: string) {
   } catch { return []; }
 }
 
-export async function getLeadDetail(orgId: string, id: string) {
+/** agentId (opcional): corretor só abre a ficha dos PRÓPRIOS leads. */
+export async function getLeadDetail(orgId: string, id: string, agentId?: string | null) {
   if (!hasDb()) return null;
   try {
     const l = await prisma.lead.findFirst({
-      where: { id, organizationId: orgId },
+      where: { id, organizationId: orgId, ...(agentId ? { agentId } : {}) },
       include: {
         contact: true, property: true, agent: true,
         activities: { orderBy: { createdAt: "desc" }, take: 50 },
@@ -296,15 +298,57 @@ export async function getLeadDetail(orgId: string, id: string) {
   } catch { return null; }
 }
 
-export async function getVisits(orgId: string) {
+/** agentId (opcional): agenda só do corretor — usado no Portal do Corretor. */
+export async function getVisits(orgId: string, agentId?: string | null) {
   if (!hasDb()) return [];
   try {
     const since = new Date(Date.now() - 86400000); // ontem em diante
     return await prisma.visit.findMany({
-      where: { organizationId: orgId, scheduledAt: { gte: since } },
+      where: { organizationId: orgId, scheduledAt: { gte: since }, ...(agentId ? { agentId } : {}) },
       include: { property: { select: { title: true } }, contact: { select: { name: true, phone: true } }, agent: { select: { name: true } }, lead: { select: { id: true } } },
       orderBy: { scheduledAt: "asc" },
       take: 100,
     });
   } catch { return []; }
+}
+
+/* ---------- PORTAL DO CORRETOR ---------- */
+
+/** KPIs individuais do corretor logado: meus leads, visitas, comissões e meta. */
+export async function getAgentDashboard(orgId: string, agentId: string) {
+  const empty = {
+    activeLeads: 0, newLeadsMonth: 0, scheduledVisits: 0, myProperties: 0,
+    commissionPending: 0, commissionPaidMonth: 0, meta: 0, realizado: 0, goalPct: 0,
+  };
+  if (!hasDb()) return empty;
+  try {
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const [activeLeads, newLeadsMonth, scheduledVisits, myProperties, pendingAgg, paidAgg, goal, wonAgg] =
+      await Promise.all([
+        prisma.lead.count({ where: { organizationId: orgId, agentId, stage: { notIn: ["WON", "LOST"] } } }),
+        prisma.lead.count({ where: { organizationId: orgId, agentId, createdAt: { gte: monthStart } } }),
+        prisma.visit.count({ where: { organizationId: orgId, agentId, status: "SCHEDULED", scheduledAt: { gte: new Date(Date.now() - 86400000) } } }),
+        prisma.property.count({ where: { organizationId: orgId, agentId, status: { in: ["FOR_SALE", "EXCLUSIVE", "RESERVED"] } } }),
+        prisma.commission.aggregate({ where: { organizationId: orgId, agentId, status: "PENDING" }, _sum: { amount: true } }),
+        prisma.commission.aggregate({ where: { organizationId: orgId, agentId, status: "PAID", paidAt: { gte: monthStart } }, _sum: { amount: true } }),
+        prisma.goal.findFirst({ where: { organizationId: orgId, agentId, year: now.getFullYear(), month: now.getMonth() + 1 } }),
+        prisma.contract.aggregate({
+          where: {
+            organizationId: orgId, status: "CLOSED", closedAt: { gte: monthStart },
+            commissions: { some: { agentId } },
+          },
+          _sum: { totalAmount: true },
+        }),
+      ]);
+    const meta = Number(goal?.targetAmount ?? 0);
+    const realizado = Number(wonAgg._sum.totalAmount ?? 0);
+    return {
+      activeLeads, newLeadsMonth, scheduledVisits, myProperties,
+      commissionPending: Number(pendingAgg._sum.amount ?? 0),
+      commissionPaidMonth: Number(paidAgg._sum.amount ?? 0),
+      meta, realizado,
+      goalPct: meta ? Math.min(100, Math.round((100 * realizado) / meta)) : 0,
+    };
+  } catch { return empty; }
 }

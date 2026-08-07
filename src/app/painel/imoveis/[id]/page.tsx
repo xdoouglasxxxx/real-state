@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getTenant } from "@/lib/tenant";
+import { requireManagerUp } from "@/lib/perm";
 import { getAgents, getPanelProperty } from "@/lib/data";
 import { setPropertyStatus } from "@/app/painel/actions";
 import PropertyForm from "@/components/painel/PropertyForm";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function EditarImovel({
   params, searchParams,
 }: { params: { id: string }; searchParams: { erro?: string; salvo?: string } }) {
-  const org = await getTenant();
+  const { org } = await requireManagerUp();
   const [property, agents] = await Promise.all([
     getPanelProperty(org.id, params.id),
     getAgents(org.id),

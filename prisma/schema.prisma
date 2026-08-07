@@ -105,6 +105,8 @@ model User {
   email          String
   name           String?
   role           Role         @default(AGENT)
+  passHash       String? // scrypt salt:hash (src/lib/auth.ts) — null em usuários legados até o 1º login
+  isActive       Boolean      @default(true)
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   agent          Agent?

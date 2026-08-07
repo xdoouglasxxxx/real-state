@@ -1,11 +1,11 @@
-import { getTenant } from "@/lib/tenant";
+import { requireAdmin } from "@/lib/perm";
 import { prisma } from "@/lib/prisma";
 import { updateOrganization } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function Configuracoes({ searchParams }: { searchParams: { salvo?: string } }) {
-  const tenant = await getTenant();
+  const { org: tenant } = await requireAdmin();
   let org: any = tenant;
   try {
     org = (await prisma.organization.findUnique({ where: { id: tenant.id } })) ?? tenant;

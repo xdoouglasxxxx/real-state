@@ -22,7 +22,18 @@ export function verifyPassword(pass: string, stored?: string | null) {
 }
 
 /* ---------- sessão (cookie assinado) ---------- */
-type Session = { orgId: string; email: string; master?: boolean; exp: number };
+// role/userId/agentId chegaram na etapa multiusuário; sessões antigas não os
+// têm — o app trata sessão sem role como ORG_ADMIN (antes só o admin logava).
+export type SessionRole = "ORG_ADMIN" | "MANAGER" | "AGENT";
+type Session = {
+  orgId: string;
+  email: string;
+  userId?: string;
+  role?: SessionRole;
+  agentId?: string | null;
+  master?: boolean;
+  exp: number;
+};
 
 const sign = (data: string) => createHmac("sha256", SECRET).update(data).digest("base64url");
 
