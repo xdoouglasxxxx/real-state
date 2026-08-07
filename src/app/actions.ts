@@ -65,6 +65,7 @@ async function createLead(opts: {
 }
 
 export async function submitVisitInquiry(formData: FormData) {
+  const wantSimilar = formData.get("wantSimilar") === "1";
   const name = String(formData.get("name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
   const message = String(formData.get("message") ?? "").trim();

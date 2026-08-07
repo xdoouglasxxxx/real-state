@@ -7,9 +7,11 @@ export const dynamic = "force-dynamic";
 
 export default async function NovaVisita({ searchParams }: { searchParams: { erro?: string; lead?: string } }) {
   const org = await getTenant();
-  const [agents, properties, leads] = await Promise.all([
+  const [agents, allProperties, leads] = await Promise.all([
     getAgents(org.id), getPanelProperties(org.id), getLeadsBoardFull(org.id),
   ]);
+  // só faz sentido visitar o que está disponível
+  const properties = (allProperties as any[]).filter((p) => !["SOLD", "ARCHIVED"].includes(p.status));
 
   return (
     <>

@@ -87,20 +87,35 @@ export default async function PropertyPage({ params, searchParams }: Props) {
           )}
 
           <div className="inquiry">
-            <h3>Agendar visita</h3>
-            {searchParams.enviado ? (
-              <p className="ok">Recebemos seu interesse! Um consultor entra em contato em até 2 horas úteis.</p>
-            ) : (
-              <form action={submitVisitInquiry} className="form">
-                <input type="hidden" name="propertyId" value={p.id} />
-                <input type="hidden" name="slug" value={p.slug} />
-                <input name="name" placeholder="Seu nome" required />
-                <input name="phone" placeholder="Telefone / WhatsApp" required />
-                <textarea name="message" placeholder="Mensagem (opcional)" rows={3} />
-                {searchParams.erro && <p style={{ color: "#d88" }}>Preencha nome e telefone.</p>}
-                <button className="btn-solid" type="submit">Enviar interesse</button>
-              </form>
-            )}
+            {(() => {
+              const negotiated = ["SOLD", "RESERVED"].includes(p.status);
+              return (
+                <>
+                  <h3>{negotiated ? "Este imóvel já foi negociado" : "Agendar visita"}</h3>
+                  {negotiated && (
+                    <p style={{ color: "var(--stone)", fontSize: ".9rem", marginBottom: "1rem" }}>
+                      Deixe seu contato e enviaremos oportunidades parecidas — muitas vezes antes de irem ao site.
+                    </p>
+                  )}
+                  {searchParams.enviado ? (
+                    <p className="ok">Recebemos seu interesse! Um consultor entra em contato em até 2 horas úteis.</p>
+                  ) : (
+                    <form action={submitVisitInquiry} className="form">
+                      <input type="hidden" name="propertyId" value={p.id} />
+                      <input type="hidden" name="slug" value={p.slug} />
+                      {negotiated && <input type="hidden" name="wantSimilar" value="1" />}
+                      <input name="name" placeholder="Seu nome" required />
+                      <input name="phone" placeholder="Telefone / WhatsApp" required />
+                      <textarea name="message" placeholder="Mensagem (opcional)" rows={3} />
+                      {searchParams.erro && <p style={{ color: "#d88" }}>Preencha nome e telefone.</p>}
+                      <button className="btn-solid" type="submit">
+                        {negotiated ? "Quero um imóvel como este" : "Enviar interesse"}
+                      </button>
+                    </form>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
