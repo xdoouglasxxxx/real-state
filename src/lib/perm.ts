@@ -86,14 +86,14 @@ export async function requirePanel(): Promise<PanelContext> {
 /** Exige GERENTE ou acima (corretor não passa). */
 export async function requireManagerUp(): Promise<PanelContext> {
   const ctx = await requirePanel();
-  if (!ctx.isManagerUp) redirect("/painel?negado=1");
+  if (!ctx.isManagerUp) redirect("/painel?negado=gerente");
   return ctx;
 }
 
 /** Exige ADMIN da imobiliária (ou master). */
 export async function requireAdmin(): Promise<PanelContext> {
   const ctx = await requirePanel();
-  if (!ctx.isAdmin) redirect("/painel?negado=1");
+  if (!ctx.isAdmin) redirect("/painel?negado=admin");
   return ctx;
 }
 

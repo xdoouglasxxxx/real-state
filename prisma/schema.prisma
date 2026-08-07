@@ -350,6 +350,7 @@ model Lead {
   score          Int          @default(0) // qualificação (IA/regras)
   budgetMax      Decimal?     @db.Decimal(14, 2)
   interest       String?      // "casa até 900 mil em Curitiba"
+  objections     String? // objeções mapeadas do cliente (Copiloto 3.5)
   lostReason     String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt

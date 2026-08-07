@@ -261,9 +261,9 @@ export async function getSubscriptionInfo(orgId: string) {
 export async function getLeadsBoardFull(orgId: string, agentId?: string | null) {
   if (!hasDb()) {
     return [
-      { id: "1", stage: "FINANCING", source: "INSTAGRAM", name: "Douglas Ferreira", phone: "41999003524", property: "Loft Jardins", agent: "Beatriz Lins", createdAt: new Date() },
-      { id: "2", stage: "VISIT", source: "SITE", name: "Carla Mendes", phone: "11988887777", property: "Penthouse Horizonte", agent: "Rafael Moreno", createdAt: new Date() },
-      { id: "3", stage: "NEW", source: "WHATSAPP", name: "Otávio Nunes", phone: "11977776666", property: "Casa em Alphaville", agent: "Sem corretor", createdAt: new Date() },
+      { id: "1", stage: "FINANCING", source: "INSTAGRAM", name: "Douglas Ferreira", phone: "41999003524", property: "Loft Jardins", agent: "Beatriz Lins", score: 78, createdAt: new Date() },
+      { id: "2", stage: "VISIT", source: "SITE", name: "Carla Mendes", phone: "11988887777", property: "Penthouse Horizonte", agent: "Rafael Moreno", score: 55, createdAt: new Date() },
+      { id: "3", stage: "NEW", source: "WHATSAPP", name: "Otávio Nunes", phone: "11977776666", property: "Casa em Alphaville", agent: "Sem corretor", score: 30, createdAt: new Date() },
     ];
   }
   try {
@@ -278,6 +278,7 @@ export async function getLeadsBoardFull(orgId: string, agentId?: string | null) 
       phone: l.contact?.phone ?? "",
       property: l.property?.title ?? l.interest ?? "—",
       agent: l.agent?.name ?? "Sem corretor",
+      score: l.score,
       createdAt: l.createdAt,
     }));
   } catch { return []; }
@@ -567,6 +568,183 @@ export async function getClientPortal(orgId: string, email: string) {
     return { contacts, journeys: leads, visits, favorites };
   } catch (e) {
     console.error("getClientPortal:", e);
+    return empty;
+  }
+}
+
+/* ---------- ONDA 3.5 — COPILOTO (regras, sem IA externa) ---------- */
+
+/** Temperatura do lead pelo score (coluna que existe desde o dia 1). */
+export const leadTemp = (score: number) =>
+  score >= 70 ? { icon: "🔥", label: "Quente" } : score >= 40 ? { icon: "🌤", label: "Morno" } : { icon: "❄️", label: "Frio" };
+
+/** Munição do corretor: top leads por score, esfriando e comissão potencial. */
+export async function getAgentCopilot(orgId: string, agentId: string) {
+  const empty = { top: [] as any[], cooling: [] as any[], coolingCount: 0, hotCommission: 0 };
+  if (!hasDb()) return empty;
+  try {
+    const d72h = new Date(Date.now() - 72 * 3600000);
+    const [top, cooling, coolingCount, hotLeads, agent] = await Promise.all([
+      prisma.lead.findMany({
+        where: { organizationId: orgId, agentId, stage: { notIn: ["WON", "LOST"] } },
+        orderBy: [{ score: "desc" }, { updatedAt: "desc" }], take: 3,
+        select: {
+          id: true, score: true, stage: true, updatedAt: true,
+          contact: { select: { name: true, phone: true } },
+          property: { select: { title: true } },
+        },
+      }),
+      prisma.lead.findMany({
+        where: { organizationId: orgId, agentId, stage: { in: ["NEW", "CONTACTED"] }, updatedAt: { lt: d72h } },
+        orderBy: { updatedAt: "asc" }, take: 3,
+        select: { id: true, updatedAt: true, contact: { select: { name: true, phone: true } } },
+      }),
+      prisma.lead.count({
+        where: { organizationId: orgId, agentId, stage: { in: ["NEW", "CONTACTED"] }, updatedAt: { lt: d72h } },
+      }),
+      prisma.lead.findMany({
+        where: { organizationId: orgId, agentId, stage: { in: ["PROPOSAL", "FINANCING", "CONTRACT"] }, propertyId: { not: null } },
+        select: { property: { select: { price: true } } },
+      }),
+      prisma.agent.findUnique({ where: { id: agentId }, select: { commissionPct: true } }),
+    ]);
+    // Comissão potencial: preço dos imóveis em negociação × % do corretor × 50% (repasse padrão)
+    const pct = Number(agent?.commissionPct ?? 2.5);
+    const hotCommission = hotLeads.reduce((s, l) => s + Number(l.property?.price ?? 0), 0) * (pct / 100) * 0.5;
+    return { top, cooling, coolingCount, hotCommission };
+  } catch (e) {
+    console.error("getAgentCopilot:", e);
+    return empty;
+  }
+}
+
+/** Badges do menu lateral: pendências que puxam ação (escopadas por papel). */
+export async function getSidebarBadges(orgId: string, agentId?: string | null) {
+  const empty = { coldLeads: 0, visitsToday: 0 };
+  if (!hasDb()) return empty;
+  try {
+    const d72h = new Date(Date.now() - 72 * 3600000);
+    const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(); dayEnd.setHours(23, 59, 59, 999);
+    const scope = agentId ? { agentId } : {};
+    const [coldLeads, visitsToday] = await Promise.all([
+      prisma.lead.count({ where: { organizationId: orgId, ...scope, stage: { in: ["NEW", "CONTACTED"] }, updatedAt: { lt: d72h } } }),
+      prisma.visit.count({ where: { organizationId: orgId, ...scope, status: "SCHEDULED", scheduledAt: { gte: dayStart, lte: dayEnd } } }),
+    ]);
+    return { coldLeads, visitsToday };
+  } catch { return empty; }
+}
+
+/* ---------- ONDA 4.1 — FINANCEIRO ---------- */
+
+export const FIN_CATEGORY: Record<string, string> = {
+  COMISSAO_RECEBIDA: "Comissão recebida", COMISSAO_PAGA: "Repasse a corretor",
+  IMPOSTO: "Impostos e taxas", PRO_LABORE: "Pró-labore", DESPESA_FIXA: "Despesa fixa",
+  DESPESA_VARIAVEL: "Despesa variável", MARKETING: "Marketing", RECEITA_OUTRA: "Outras receitas",
+};
+
+/** Visão financeira: KPIs do mês, fluxo 6 meses, DRE por categoria e comissões. */
+export async function getFinance(orgId: string, year: number, month: number) {
+  const empty = {
+    kpis: { inPaid: 0, outPaid: 0, result: 0, toReceive: 0, toPay: 0, overdue: 0 },
+    flow: [] as { label: string; inn: number; out: number }[],
+    dre: [] as { category: string; direction: string; total: number }[],
+    entries: [] as any[],
+    commissions: [] as any[],
+  };
+  if (!hasDb()) return empty;
+  try {
+    const mStart = new Date(year, month - 1, 1);
+    const mEnd = new Date(year, month, 0, 23, 59, 59);
+    const now = new Date();
+    const flowStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+
+    const [paidAgg, openAgg, overdueAgg, flowRows, dreRows, entries, commissions] = await Promise.all([
+      // realizado no mês (pelo paidAt)
+      prisma.financeEntry.groupBy({
+        by: ["direction"],
+        where: { organizationId: orgId, paidAt: { gte: mStart, lte: mEnd } },
+        _sum: { amount: true },
+      }),
+      // em aberto com vencimento no mês
+      prisma.financeEntry.groupBy({
+        by: ["direction"],
+        where: { organizationId: orgId, paidAt: null, dueDate: { gte: mStart, lte: mEnd } },
+        _sum: { amount: true },
+      }),
+      // vencidos e não pagos (qualquer data até hoje)
+      prisma.financeEntry.aggregate({
+        where: { organizationId: orgId, paidAt: null, dueDate: { lt: now } },
+        _sum: { amount: true },
+      }),
+      // fluxo dos últimos 6 meses (pelo paidAt)
+      prisma.financeEntry.findMany({
+        where: { organizationId: orgId, paidAt: { gte: flowStart } },
+        select: { direction: true, amount: true, paidAt: true },
+      }),
+      // DRE do mês selecionado (pago no mês, por categoria)
+      prisma.financeEntry.groupBy({
+        by: ["category", "direction"],
+        where: { organizationId: orgId, paidAt: { gte: mStart, lte: mEnd } },
+        _sum: { amount: true },
+      }),
+      // lançamentos do mês (vencimento no mês)
+      prisma.financeEntry.findMany({
+        where: { organizationId: orgId, dueDate: { gte: mStart, lte: mEnd } },
+        orderBy: [{ paidAt: "asc" }, { dueDate: "asc" }],
+        take: 200,
+        include: { contract: { select: { id: true, proposal: { select: { property: { select: { title: true } } } } } } },
+      }),
+      // comissões pendentes (todas) + pagas no mês
+      prisma.commission.findMany({
+        where: {
+          organizationId: orgId,
+          OR: [{ status: "PENDING" }, { status: "PAID", paidAt: { gte: mStart, lte: mEnd } }],
+        },
+        orderBy: [{ status: "desc" }, { paidAt: "desc" }],
+        take: 100,
+        include: {
+          agent: { select: { name: true } },
+          contract: { select: { totalAmount: true, proposal: { select: { property: { select: { title: true } } } } } },
+        },
+      }),
+    ]);
+
+    const g = (rows: any[], dir: string) => Number(rows.find((r) => r.direction === dir)?._sum.amount ?? 0);
+    const inPaid = g(paidAgg, "IN"), outPaid = g(paidAgg, "OUT");
+
+    // série de 6 meses
+    const flowMap = new Map<string, { inn: number; out: number }>();
+    for (let k = 5; k >= 0; k--) {
+      const d0 = new Date(now.getFullYear(), now.getMonth() - k, 1);
+      flowMap.set(`${d0.getFullYear()}-${d0.getMonth()}`, { inn: 0, out: 0 });
+    }
+    for (const r of flowRows) {
+      const d0 = new Date(r.paidAt as any);
+      const key = `${d0.getFullYear()}-${d0.getMonth()}`;
+      const slot = flowMap.get(key);
+      if (slot) slot[r.direction === "IN" ? "inn" : "out"] += Number(r.amount);
+    }
+    const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+    const flow = Array.from(flowMap.entries()).map(([key, v]) => {
+      const [, m0] = key.split("-").map(Number);
+      return { label: MONTHS[m0], inn: v.inn, out: v.out };
+    });
+
+    return {
+      kpis: {
+        inPaid, outPaid, result: inPaid - outPaid,
+        toReceive: g(openAgg, "IN"), toPay: g(openAgg, "OUT"),
+        overdue: Number(overdueAgg._sum.amount ?? 0),
+      },
+      flow,
+      dre: dreRows.map((r) => ({ category: String(r.category), direction: String(r.direction), total: Number(r._sum.amount ?? 0) }))
+                  .sort((a, b) => (a.direction === b.direction ? b.total - a.total : a.direction === "IN" ? -1 : 1)),
+      entries,
+      commissions,
+    };
+  } catch (e) {
+    console.error("getFinance:", e);
     return empty;
   }
 }

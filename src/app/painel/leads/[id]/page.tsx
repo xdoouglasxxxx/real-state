@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePanel } from "@/lib/perm";
-import { getLeadDetail, getAgents } from "@/lib/data";
+import { getLeadDetail, getAgents, leadTemp } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
-import { addLeadNote, assignAgent, upsertClientAccess } from "../actions";
+import { addLeadNote, assignAgent, upsertClientAccess, saveObjections } from "../actions";
 import { STAGE_LABEL, SOURCE_LABEL } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +53,7 @@ export default async function LeadFicha({ params, searchParams }: { params: { id
       <Link className="back" href="/painel/leads">← Voltar ao funil</Link>
       <div className="phead">
         <h1>{lead.contact?.name}</h1>
+        <span className="pill" title={`Score ${lead.score}`}>{leadTemp(lead.score).icon} {leadTemp(lead.score).label} · {lead.score}</span>
         <span className="pill">{STAGE_LABEL[lead.stage] ?? lead.stage}</span>
       </div>
 
@@ -120,6 +121,19 @@ export default async function LeadFicha({ params, searchParams }: { params: { id
               )}
             </section>
           )}
+
+          <section className="ficha-box">
+            <h2>Objeções do cliente</h2>
+            <form action={saveObjections} className="form">
+              <input type="hidden" name="leadId" value={lead.id} />
+              <textarea name="objections" rows={3} defaultValue={(lead as any).objections ?? ""}
+                placeholder="Ex.: achou o condomínio caro; esposa quer 3 vagas; medo do financiamento não aprovar..." />
+              <button className="btn-outline" type="submit">Salvar objeções</button>
+            </form>
+            <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".5rem" }}>
+              Mapeie aqui o que trava a decisão — é a sua munição para o próximo contato. Não aparece para o cliente.
+            </p>
+          </section>
 
           <section className="ficha-box">
             <h2>Anotação</h2>

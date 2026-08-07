@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { getTenant } from "@/lib/tenant";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getSidebarBadges } from "@/lib/data";
 import { logout } from "@/app/auth-actions";
 
 export const metadata: Metadata = { title: "Painel", robots: { index: false, follow: false } };
@@ -35,6 +36,19 @@ export default async function PainelLayout({ children }: { children: React.React
   const isAdmin = session?.master || role === "ORG_ADMIN";
   const isAgent = !session?.master && role === "AGENT";
 
+  // Badges de pendência (escopo do corretor quando for AGENT)
+  let badges = { coldLeads: 0, visitsToday: 0 };
+  if (process.env.DATABASE_URL) {
+    try {
+      const agentScope = isAgent && session?.userId
+        ? (await prisma.agent.findFirst({ where: { organizationId: org.id, userId: session.userId }, select: { id: true } }))?.id ?? "-"
+        : null;
+      badges = await getSidebarBadges(org.id, agentScope);
+    } catch {}
+  }
+  const Badge = ({ n, title }: { n: number; title: string }) =>
+    n > 0 ? <span className="nav-badge" title={title}>{n}</span> : null;
+
   const [first, ...rest] = org.name.toUpperCase().split(" ");
   return (
     <div className="panel">
@@ -43,10 +57,11 @@ export default async function PainelLayout({ children }: { children: React.React
         <span className="panel-slug">{org.slug}.{process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? ""}</span>
 
         <Link className="panel-link" href="/painel">{isAgent ? "Meu painel" : "Dashboard"}</Link>
-        <Link className="panel-link" href="/painel/leads">{isAgent ? "Meus leads" : "Leads"}</Link>
-        <Link className="panel-link" href="/painel/agenda">{isAgent ? "Minha agenda" : "Agenda"}</Link>
+        <Link className="panel-link" href="/painel/leads">{isAgent ? "Meus leads" : "Leads"}<Badge n={badges.coldLeads} title="Leads esfriando (72h sem contato)" /></Link>
+        <Link className="panel-link" href="/painel/agenda">{isAgent ? "Minha agenda" : "Agenda"}<Badge n={badges.visitsToday} title="Visitas hoje" /></Link>
         <Link className="panel-link" href="/painel/imoveis">Imóveis</Link>
         {!isAgent && <Link className="panel-link" href="/painel/corretores">Corretores</Link>}
+        {isAdmin && <Link className="panel-link" href="/painel/financeiro">Financeiro</Link>}
         {isAdmin && <Link className="panel-link" href="/painel/usuarios">Usuários</Link>}
         {isAdmin && <Link className="panel-link" href="/painel/assinatura">Assinatura</Link>}
         {isAdmin && <Link className="panel-link" href="/painel/configuracoes">Configurações</Link>}

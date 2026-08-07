@@ -454,3 +454,5 @@ html,body{overflow-x:hidden;max-width:100vw}
 .agenda-status-DONE{border-color:#5a8a5a;color:#8fc98f}
 .agenda-status-NO_SHOW{border-color:#8a6a3a;color:#d8b271}
 .agenda-status-CANCELED{border-color:#8a4a4a;color:#d88}
+
+.nav-badge{display:inline-block;min-width:1.35em;margin-left:.45rem;padding:.05em .4em;border-radius:999px;background:var(--brass);color:var(--ink);font-size:.68rem;font-weight:700;text-align:center;letter-spacing:0}

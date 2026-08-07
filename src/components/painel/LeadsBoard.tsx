@@ -14,7 +14,10 @@ const SOURCE: Record<string, string> = {
   GOOGLE: "Google", INDICACAO: "Indicação", PORTAL: "Portal", OUTRO: "Outro",
 };
 
-type Lead = { id: string; stage: string; source: string; name: string; phone: string; property: string; agent: string };
+type Lead = { id: string; stage: string; source: string; name: string; phone: string; property: string; agent: string; score?: number };
+
+const temp = (score?: number) =>
+  score == null ? null : score >= 70 ? ["🔥", "Quente"] : score >= 40 ? ["🌤", "Morno"] : ["❄️", "Frio"];
 
 export default function LeadsBoard({ initial }: { initial: Lead[] }) {
   const [leads, setLeads] = useState(initial);
@@ -54,7 +57,7 @@ export default function LeadsBoard({ initial }: { initial: Lead[] }) {
                 draggable
                 onDragStart={(e) => e.dataTransfer.setData("text/lead", l.id)}
               >
-                <strong>{l.name}</strong>
+                <strong>{l.name}{temp(l.score) && <span title={`Score ${l.score} · ${temp(l.score)![1]}`} style={{ marginLeft: ".35rem", fontSize: ".85em" }}>{temp(l.score)![0]}</span>}</strong>
                 <span>{l.property}</span><br />
                 <span>{l.agent}</span>
                 <div className="kcard-foot">

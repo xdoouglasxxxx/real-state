@@ -169,3 +169,24 @@ export async function upsertClientAccess(formData: FormData) {
 const rethrowRedirect2 = (e: unknown) => {
   if (e && typeof e === "object" && "digest" in e && String((e as any).digest).startsWith("NEXT_REDIRECT")) throw e;
 };
+
+/** Objeções mapeadas do cliente — a "munição" do corretor. Corretor só nos próprios leads. */
+export async function saveObjections(formData: FormData) {
+  const ctx = await requirePanel();
+  const leadId = String(formData.get("leadId") ?? "");
+  const objections = String(formData.get("objections") ?? "").trim().slice(0, 2000) || null;
+  try {
+    const lead = await prisma.lead.findFirst({
+      where: { id: leadId, organizationId: ctx.org.id, ...(ctx.isAgent ? { agentId: ctx.agentId ?? "-" } : {}) },
+      select: { id: true },
+    });
+    if (lead) {
+      await prisma.lead.update({ where: { id: lead.id }, data: { objections } });
+      await prisma.activity.create({
+        data: { leadId, type: "NOTE", payload: { note: "Objeções do cliente atualizadas", by: author(ctx) } },
+      });
+    }
+  } catch (e) { console.error("saveObjections:", e); }
+  revalidatePath(`/painel/leads/${leadId}`);
+  redirect(`/painel/leads/${leadId}`);
+}

@@ -4,6 +4,7 @@ import { requireManagerUp } from "@/lib/perm";
 import { getAgents, getPanelProperty } from "@/lib/data";
 import { setPropertyStatus } from "@/app/painel/actions";
 import PropertyForm from "@/components/painel/PropertyForm";
+import FinancingSimulator from "@/components/painel/FinancingSimulator";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,8 @@ export default async function EditarImovel({
       </div>
 
       <PropertyForm property={property} agents={agents as any} erro={searchParams.erro} />
+
+      <FinancingSimulator price={Number((property as any).price ?? 0)} />
     </>
   );
 }
