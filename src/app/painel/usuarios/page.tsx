@@ -23,7 +23,8 @@ export default async function Usuarios({ searchParams }: { searchParams: { salvo
   try {
     [users, freeAgents] = await Promise.all([
       prisma.user.findMany({
-        where: { organizationId: ctx.org.id },
+        // acessos de CLIENTE são criados na ficha do lead e não aparecem aqui
+        where: { organizationId: ctx.org.id, role: { in: ["ORG_ADMIN", "MANAGER", "AGENT"] as any } },
         orderBy: [{ isActive: "desc" }, { createdAt: "asc" }],
         include: { agent: { select: { id: true, name: true } } },
       }),
@@ -37,7 +38,7 @@ export default async function Usuarios({ searchParams }: { searchParams: { salvo
 
   const sub = await getSubscriptionInfo(ctx.org.id);
   const plan = getPlan(sub.plan);
-  const activeCount = users.filter((u) => u.isActive).length;
+  const activeCount = users.filter((u) => u.isActive).length; // só papéis do painel
 
   return (
     <>

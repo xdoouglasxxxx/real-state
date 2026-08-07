@@ -79,7 +79,8 @@ export async function requirePanel(): Promise<PanelContext> {
     };
   }
   if (!ctx) redirect("/login");
-  return ctx;
+  if (ctx!.role === "CLIENT") redirect("/cliente"); // cliente tem portal próprio
+  return ctx!;
 }
 
 /** Exige GERENTE ou acima (corretor não passa). */

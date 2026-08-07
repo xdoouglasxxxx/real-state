@@ -33,7 +33,7 @@ export async function createUser(formData: FormData) {
   try {
     const [sub, count, existing] = await Promise.all([
       prisma.subscription.findUnique({ where: { organizationId: ctx.org.id } }),
-      prisma.user.count({ where: { organizationId: ctx.org.id, isActive: true } }),
+      prisma.user.count({ where: { organizationId: ctx.org.id, isActive: true, role: { in: PANEL_ROLES as any } } }),
       prisma.user.findFirst({ where: { organizationId: ctx.org.id, email } }),
     ]);
     atLimit = count >= getPlan(sub?.plan).maxUsers;

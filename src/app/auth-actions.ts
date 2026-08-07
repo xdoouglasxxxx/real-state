@@ -17,6 +17,7 @@ const slugify = (s: string) =>
    .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "imobiliaria";
 
 const PANEL_ROLES = ["ORG_ADMIN", "MANAGER", "AGENT"] as const;
+const LOGIN_ROLES = ["ORG_ADMIN", "MANAGER", "AGENT", "CLIENT"] as const;
 
 /** Cadastro self-service: cria o tenant completo e loga o admin. */
 export async function createTenant(formData: FormData) {
@@ -81,6 +82,7 @@ export async function login(formData: FormData) {
   const pass = String(formData.get("password") ?? "");
   if (!email || !pass) redirect("/login?erro=1");
 
+  let dest = "/painel";
   try {
     // ---- Acesso master da plataforma (entra em qualquer tenant) ----
     const masterOk =
@@ -101,7 +103,7 @@ export async function login(formData: FormData) {
         where: {
           email,
           isActive: true,
-          role: { in: PANEL_ROLES as any },
+          role: { in: LOGIN_ROLES as any },
           ...(slugRaw ? { organization: { slug: slugify(slugRaw) } } : {}),
         },
         orderBy: { createdAt: "asc" },
@@ -134,12 +136,13 @@ export async function login(formData: FormData) {
         agentId: user!.agent?.id ?? null,
       });
     }
+    dest = user!.role === "CLIENT" ? "/cliente" : "/painel";
   } catch (e) {
     rethrowRedirect(e);
     console.error("login:", e);
     redirect("/login?erro=1");
   }
-  redirect("/painel");
+  redirect(dest);
 }
 
 /** Minha conta: o usuário logado troca a própria senha. */

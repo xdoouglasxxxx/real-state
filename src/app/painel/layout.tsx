@@ -31,6 +31,7 @@ export default async function PainelLayout({ children }: { children: React.React
 
   // Papel: sessões antigas (sem role) eram sempre do admin
   const role = session?.master ? "ORG_ADMIN" : session?.role ?? "ORG_ADMIN";
+  if (role === "CLIENT") redirect("/cliente"); // comprador tem portal próprio
   const isAdmin = session?.master || role === "ORG_ADMIN";
   const isAgent = !session?.master && role === "AGENT";
 

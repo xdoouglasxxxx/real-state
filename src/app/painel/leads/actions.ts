@@ -118,3 +118,54 @@ export async function createManualLead(formData: FormData) {
   revalidatePath("/painel/leads");
   redirect(newLeadId ? `/painel/leads/${newLeadId}` : "/painel/leads/novo?erro=2");
 }
+
+/** Cria (ou redefine) o acesso do CLIENTE ao portal — gerente ou admin.
+ *  O vínculo é pelo e-mail do contato; cliente entra no /login e cai no /cliente. */
+export async function upsertClientAccess(formData: FormData) {
+  const ctx = await requireManagerUp();
+  const leadId = String(formData.get("leadId") ?? "");
+  const pass = String(formData.get("password") ?? "");
+  if (pass.length < 6) redirect(`/painel/leads/${leadId}?cliente=senha`);
+
+  try {
+    const lead = await prisma.lead.findFirst({
+      where: { id: leadId, organizationId: ctx.org.id },
+      include: { contact: { select: { id: true, name: true, email: true } } },
+    });
+    if (!lead) redirect("/painel/leads");
+    const email = lead!.contact.email?.trim().toLowerCase();
+    if (!email) redirect(`/painel/leads/${leadId}?cliente=sememail`);
+
+    const { hashPassword } = await import("@/lib/auth");
+    const existing = await prisma.user.findFirst({
+      where: { organizationId: ctx.org.id, email: email! },
+    });
+    if (existing && existing.role !== "CLIENT") {
+      // e-mail já pertence a alguém do time — não pode virar cliente
+      redirect(`/painel/leads/${leadId}?cliente=conflito`);
+    }
+    if (existing) {
+      await prisma.user.update({ where: { id: existing!.id }, data: { passHash: hashPassword(pass), isActive: true } });
+    } else {
+      await prisma.user.create({
+        data: {
+          organizationId: ctx.org.id, email: email!, name: lead!.contact.name,
+          role: "CLIENT", passHash: hashPassword(pass),
+        },
+      });
+    }
+    await prisma.activity.create({
+      data: { leadId, type: "NOTE", payload: { note: "Acesso ao Portal do Cliente criado/atualizado", by: author(ctx) } },
+    });
+  } catch (e) {
+    rethrowRedirect2(e);
+    console.error("upsertClientAccess:", e);
+    redirect(`/painel/leads/${leadId}?cliente=erro`);
+  }
+  revalidatePath(`/painel/leads/${leadId}`);
+  redirect(`/painel/leads/${leadId}?cliente=ok`);
+}
+
+const rethrowRedirect2 = (e: unknown) => {
+  if (e && typeof e === "object" && "digest" in e && String((e as any).digest).startsWith("NEXT_REDIRECT")) throw e;
+};

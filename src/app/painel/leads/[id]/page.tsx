@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePanel } from "@/lib/perm";
 import { getLeadDetail, getAgents } from "@/lib/data";
-import { addLeadNote, assignAgent } from "../actions";
+import { prisma } from "@/lib/prisma";
+import { addLeadNote, assignAgent, upsertClientAccess } from "../actions";
 import { STAGE_LABEL, SOURCE_LABEL } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ const ACT_LABEL: Record<string, string> = {
   EMAIL_SENT: "E-mail enviado", CALL: "Ligação", NOTE: "Anotação", STAGE_CHANGE: "Mudou de estágio",
 };
 
-export default async function LeadFicha({ params }: { params: { id: string } }) {
+export default async function LeadFicha({ params, searchParams }: { params: { id: string }; searchParams: { cliente?: string } }) {
   const ctx = await requirePanel();
   const org = ctx.org;
   // Corretor só abre a ficha dos PRÓPRIOS leads (agentId "-" nunca casa = nega)
@@ -22,6 +23,25 @@ export default async function LeadFicha({ params }: { params: { id: string } }) 
     getAgents(org.id),
   ]);
   if (!lead) notFound();
+
+  // Portal do Cliente: já existe acesso para o e-mail deste contato?
+  let clientAccess: { isActive: boolean } | null = null;
+  const contactEmail = (lead as any).contact?.email?.trim().toLowerCase() ?? null;
+  if (ctx.isManagerUp && contactEmail && process.env.DATABASE_URL) {
+    try {
+      clientAccess = await prisma.user.findFirst({
+        where: { organizationId: org.id, email: contactEmail, role: "CLIENT" },
+        select: { isActive: true },
+      });
+    } catch {}
+  }
+  const CLIENTE_MSG: Record<string, [string, boolean]> = {
+    ok: ["✔ Acesso do cliente pronto — envie o e-mail e a senha pelo WhatsApp.", true],
+    senha: ["A senha do cliente precisa de pelo menos 6 caracteres.", false],
+    sememail: ["Este contato não tem e-mail cadastrado — o acesso do portal usa o e-mail como login.", false],
+    conflito: ["Este e-mail pertence a um usuário do time — não pode virar acesso de cliente.", false],
+    erro: ["Erro ao criar o acesso. Tente de novo — se persistir, veja os Logs.", false],
+  };
 
   const phone = lead.contact?.phone ?? "";
   const wa = phone
@@ -69,6 +89,37 @@ export default async function LeadFicha({ params }: { params: { id: string } }) 
               </form>
             )}
           </section>
+
+          {ctx.isManagerUp && (
+            <section className="ficha-box">
+              <h2>Portal do Cliente</h2>
+              {searchParams.cliente && (
+                <p className={CLIENTE_MSG[searchParams.cliente]?.[1] ? "ok" : "pform-error"} style={{ marginBottom: ".6rem" }}>
+                  {CLIENTE_MSG[searchParams.cliente]?.[0]}
+                </p>
+              )}
+              {!contactEmail ? (
+                <p style={{ color: "var(--stone)", fontSize: ".85rem" }}>
+                  Cadastre um e-mail para este contato para liberar o portal (o e-mail é o login do cliente).
+                </p>
+              ) : (
+                <>
+                  <p style={{ fontSize: ".85rem", color: "var(--stone)", marginBottom: ".6rem" }}>
+                    {clientAccess
+                      ? `Acesso ativo para ${contactEmail}. Defina uma nova senha se o cliente esqueceu.`
+                      : `O cliente acompanha a negociação sozinho em /login com o e-mail ${contactEmail}.`}
+                  </p>
+                  <form action={upsertClientAccess} className="form">
+                    <input type="hidden" name="leadId" value={lead.id} />
+                    <input name="password" type="password" minLength={6} placeholder="Senha do cliente (mín. 6)" required />
+                    <button className="btn-outline" type="submit">
+                      {clientAccess ? "Redefinir senha do cliente" : "Criar acesso do cliente"}
+                    </button>
+                  </form>
+                </>
+              )}
+            </section>
+          )}
 
           <section className="ficha-box">
             <h2>Anotação</h2>

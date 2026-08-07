@@ -491,3 +491,82 @@ export async function getDashboardIntel(orgId: string) {
     return { deltas: null, visitsDoneMonth: 0, funnel: [], alerts: [], sources: [], ranking: [], pipeline: 0 };
   }
 }
+
+/* ---------- PORTAL DO CLIENTE ---------- */
+
+/** Rótulos amigáveis do estágio, na voz do cliente (nunca jargão interno). */
+export const CLIENT_STAGE: Record<string, { label: string; pct: number }> = {
+  NEW: { label: "Recebemos seu interesse", pct: 10 },
+  CONTACTED: { label: "Em conversa com seu corretor", pct: 25 },
+  VISIT: { label: "Fase de visitas", pct: 45 },
+  PROPOSAL: { label: "Proposta em análise", pct: 65 },
+  FINANCING: { label: "Financiamento em andamento", pct: 80 },
+  CONTRACT: { label: "Contrato em assinatura", pct: 90 },
+  WON: { label: "Negócio concluído 🎉", pct: 100 },
+  LOST: { label: "Negociação encerrada", pct: 100 },
+};
+
+/** Tudo que o cliente pode ver, amarrado pelo E-MAIL do contato neste tenant.
+ *  SEGURANÇA: nada de anotações internas, autoria, comissões ou dados de outros. */
+export async function getClientPortal(orgId: string, email: string) {
+  const empty = { contacts: [] as any[], journeys: [] as any[], visits: [] as any[], favorites: [] as any[] };
+  if (!hasDb() || !email) return empty;
+  try {
+    const contacts = await prisma.contact.findMany({
+      where: { organizationId: orgId, email: { equals: email, mode: "insensitive" } },
+      select: { id: true, name: true },
+    });
+    if (contacts.length === 0) return empty;
+    const contactIds = contacts.map((c) => c.id);
+
+    const [leads, visits, favorites] = await Promise.all([
+      prisma.lead.findMany({
+        where: { organizationId: orgId, contactId: { in: contactIds } },
+        orderBy: { updatedAt: "desc" },
+        take: 10,
+        select: {
+          id: true, stage: true, createdAt: true, updatedAt: true,
+          property: { select: { title: true, slug: true, neighborhood: true, city: true, price: true } },
+          agent: { select: { name: true, phone: true, photoUrl: true } },
+          // timeline segura: SÓ mudanças de estágio (sem anotações, sem autoria)
+          activities: {
+            where: { type: "STAGE_CHANGE" },
+            orderBy: { createdAt: "desc" }, take: 20,
+            select: { id: true, payload: true, createdAt: true },
+          },
+          proposals: {
+            orderBy: { createdAt: "desc" }, take: 5,
+            select: {
+              id: true, amount: true, status: true, createdAt: true, respondedAt: true,
+              contract: {
+                select: {
+                  id: true, status: true, signedAt: true, closedAt: true,
+                  documents: { select: { id: true, name: true, kind: true, fileUrl: true, uploadedAt: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+      prisma.visit.findMany({
+        where: { organizationId: orgId, contactId: { in: contactIds } },
+        orderBy: { scheduledAt: "desc" }, take: 20,
+        select: {
+          id: true, scheduledAt: true, status: true,
+          property: { select: { title: true, neighborhood: true, slug: true } },
+          agent: { select: { name: true } },
+        },
+      }),
+      prisma.favorite.findMany({
+        where: { contactId: { in: contactIds }, property: { organizationId: orgId } },
+        orderBy: { createdAt: "desc" }, take: 12,
+        select: { id: true, property: { select: { title: true, slug: true, neighborhood: true, price: true, status: true } } },
+      }),
+    ]);
+
+    return { contacts, journeys: leads, visits, favorites };
+  } catch (e) {
+    console.error("getClientPortal:", e);
+    return empty;
+  }
+}
