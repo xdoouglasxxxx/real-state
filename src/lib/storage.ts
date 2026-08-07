@@ -22,6 +22,7 @@ export async function signedUploadUrl(path: string): Promise<string | null> {
   try {
     const res = await fetch(`${base()}/storage/v1/object/upload/sign/${BUCKET}/${path}`, {
       method: "POST", headers: headers(), cache: "no-store",
+      body: JSON.stringify({}), // o endpoint exige body JSON, mesmo vazio
     });
     if (!res.ok) { console.error("signedUploadUrl:", res.status, await res.text()); return null; }
     const data = await res.json();
