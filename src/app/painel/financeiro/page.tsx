@@ -1,13 +1,15 @@
+import Link from "next/link";
 import { requireAdmin } from "@/lib/perm";
-import { getFinance, FIN_CATEGORY } from "@/lib/data";
+import { getFinance, getAgents, getPanelProperties, FIN_CATEGORY } from "@/lib/data";
 import { brl, brlCompact } from "@/lib/format";
 import { createFinanceEntry, toggleFinancePaid, payCommission } from "./actions";
+import MoneyInput from "@/components/painel/MoneyInput";
 
 export const dynamic = "force-dynamic";
 
 const fmtD = (x: Date | string) => new Date(x).toLocaleDateString("pt-BR");
 
-export default async function Financeiro({ searchParams }: { searchParams: { mes?: string; salvo?: string; erro?: string; comissao?: string } }) {
+export default async function Financeiro({ searchParams }: { searchParams: { mes?: string; salvo?: string; erro?: string; comissao?: string; filtro?: string; cat?: string; q?: string } }) {
   const ctx = await requireAdmin();
 
   // Mês selecionado (?mes=2026-08); padrão = mês atual
@@ -22,7 +24,26 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
   const mesLabel = new Date(year, month - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   const toMes = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
-  const f = await getFinance(ctx.org.id, year, month);
+  const filtro = searchParams.filtro; const cat = searchParams.cat; const q = searchParams.q?.trim();
+  const [f, agents, properties] = await Promise.all([
+    getFinance(ctx.org.id, year, month, { kpi: filtro, cat, q }),
+    getAgents(ctx.org.id),
+    getPanelProperties(ctx.org.id),
+  ]);
+  // link que preserva o mês e alterna filtros (clicar de novo limpa)
+  const href = (p: { filtro?: string; cat?: string }) => {
+    const u = new URLSearchParams({ mes: mesStr });
+    const nf = p.filtro === filtro ? undefined : p.filtro;
+    const nc = p.cat === cat ? undefined : p.cat;
+    if (nf) u.set("filtro", nf);
+    if (nc) u.set("cat", nc);
+    if (q) u.set("q", q);
+    return `/painel/financeiro?${u.toString()}`;
+  };
+  const KPI_LABEL: Record<string, string> = {
+    recebido: "recebidos no mês", pago: "pagos no mês", resultado: "movimentados no mês",
+    a_receber: "a receber no mês", a_pagar: "a pagar no mês", vencidos: "vencidos em aberto",
+  };
   const maxFlow = Math.max(1, ...f.flow.map((x) => Math.max(x.inn, x.out)));
   const pendingCms = f.commissions.filter((c: any) => c.status === "PENDING");
   const paidCms = f.commissions.filter((c: any) => c.status === "PAID");
@@ -44,20 +65,25 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
       {searchParams.comissao && <p className="ok" style={{ marginBottom: "1rem" }}>✔ Comissão paga — o repasse já entrou como saída no fluxo de caixa.</p>}
       {searchParams.erro && <p className="pform-error">Confira os campos: direção, categoria, descrição, valor e vencimento são obrigatórios.</p>}
 
-      {/* ---- KPIs do mês ---- */}
+      {/* ---- KPIs do mês (clique = filtra o extrato; clique de novo = limpa) ---- */}
       <div className="kpis">
-        <div className="kpi"><strong>{brlCompact(f.kpis.inPaid)}</strong><span>recebido no mês</span></div>
-        <div className="kpi"><strong>{brlCompact(f.kpis.outPaid)}</strong><span>pago no mês</span></div>
-        <div className="kpi">
-          <strong style={{ color: f.kpis.result >= 0 ? "var(--brass)" : "#c67a6b" }}>{brlCompact(f.kpis.result)}</strong>
-          <span>resultado do mês (caixa)</span>
-        </div>
-        <div className="kpi"><strong>{brlCompact(f.kpis.toReceive)}</strong><span>a receber no mês</span></div>
-        <div className="kpi"><strong>{brlCompact(f.kpis.toPay)}</strong><span>a pagar no mês</span></div>
-        <div className="kpi">
-          <strong style={{ color: f.kpis.overdue > 0 ? "#c67a6b" : "var(--brass)" }}>{brlCompact(f.kpis.overdue)}</strong>
-          <span>vencidos em aberto (total)</span>
-        </div>
+        {([
+          ["recebido", brlCompact(f.kpis.inPaid), "recebido no mês", undefined],
+          ["pago", brlCompact(f.kpis.outPaid), "pago no mês", undefined],
+          ["resultado", brlCompact(f.kpis.result), "resultado do mês (caixa)", f.kpis.result >= 0 ? "var(--brass)" : "#c67a6b"],
+          ["a_receber", brlCompact(f.kpis.toReceive), "a receber no mês", undefined],
+          ["a_pagar", brlCompact(f.kpis.toPay), "a pagar no mês", undefined],
+          ["vencidos", brlCompact(f.kpis.overdue), "vencidos em aberto (total)", f.kpis.overdue > 0 ? "#c67a6b" : "var(--brass)"],
+        ] as [string, string, string, string | undefined][]).map(([id, val, label, color]) => (
+          <Link key={id} href={href({ filtro: id })} className="kpi"
+                style={{ textDecoration: "none", borderColor: filtro === id ? "var(--brass)" : undefined }}>
+            <strong style={color ? { color } : undefined}>{val}</strong>
+            <span>{label}</span>
+            <span style={{ display: "block", marginTop: ".3rem", fontSize: ".68rem", letterSpacing: ".05em", textTransform: "none", color: filtro === id ? "var(--brass)" : "var(--stone)", opacity: .85 }}>
+              {filtro === id ? "Filtrando extrato · clique para limpar" : "Clique para filtrar o extrato"}
+            </span>
+          </Link>
+        ))}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.2rem", marginBottom: "1.4rem" }}>
@@ -82,14 +108,16 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
           <h2>DRE simplificado · {mesLabel}</h2>
           {dreIn.length + dreOut.length === 0 && <p style={{ color: "var(--stone)" }}>Sem movimentações pagas neste mês.</p>}
           {dreIn.map((r) => (
-            <p key={r.category} style={{ display: "flex", justifyContent: "space-between", fontSize: ".9rem", marginBottom: ".3rem" }}>
+            <Link key={r.category} href={href({ cat: r.category })} title="Ver transações"
+                  style={{ display: "flex", justifyContent: "space-between", fontSize: ".9rem", marginBottom: ".3rem", textDecoration: cat === r.category ? "underline" : "none", textUnderlineOffset: 3 }}>
               <span>{FIN_CATEGORY[r.category] ?? r.category}</span><span>{brl(r.total)}</span>
-            </p>
+            </Link>
           ))}
           {dreOut.map((r) => (
-            <p key={r.category} style={{ display: "flex", justifyContent: "space-between", fontSize: ".9rem", marginBottom: ".3rem", color: "var(--stone)" }}>
+            <Link key={r.category} href={href({ cat: r.category })} title="Ver transações"
+                  style={{ display: "flex", justifyContent: "space-between", fontSize: ".9rem", marginBottom: ".3rem", color: "var(--stone)", textDecoration: cat === r.category ? "underline" : "none", textUnderlineOffset: 3 }}>
               <span>{FIN_CATEGORY[r.category] ?? r.category}</span><span>−{brl(r.total)}</span>
-            </p>
+            </Link>
           ))}
           <p style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, borderTop: "1px solid var(--line)", paddingTop: ".5rem", marginTop: ".5rem" }}>
             <span>Resultado</span>
@@ -117,6 +145,7 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
           {paidCms.length > 0 && (
             <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".5rem" }}>
               Pagas no mês: {paidCms.length} · {brl(paidCms.reduce((s: number, c: any) => s + Number(c.amount), 0))}
+              {" · "}ticket médio {brl(paidCms.reduce((s: number, c: any) => s + Number(c.amount), 0) / paidCms.length)}
             </p>
           )}
         </section>
@@ -140,37 +169,83 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
               </select>
             </label>
             <label className="span2">Descrição*<input name="description" required placeholder="Ex.: Anúncio ZAP — agosto" /></label>
-            <label>Valor (R$)*<input name="amount" required inputMode="decimal" placeholder="2.500,00" /></label>
+            <label>Valor (R$)*<MoneyInput name="amount" required placeholder="R$ 2.500,00" /></label>
             <label>Vencimento*<input name="dueDate" type="date" required /></label>
+            <label>Imóvel vinculado
+              <select name="propertyId" defaultValue="">
+                <option value="">— Nenhum —</option>
+                {(properties as any[]).map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+              </select>
+            </label>
+            <label>Corretor vinculado
+              <select name="agentId" defaultValue="">
+                <option value="">— Nenhum —</option>
+                {agents.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </label>
             <label style={{ display: "flex", alignItems: "center", gap: ".5rem", marginTop: "1.4rem" }}>
               <input type="checkbox" name="alreadyPaid" style={{ width: "auto" }} /> Já pago/recebido
             </label>
           </div>
-          <div className="pform-footer"><button className="btn-solid" type="submit">Lançar</button></div>
+          <div className="pform-footer"><button className="btn-solid" type="submit">Lançar com rastreabilidade</button></div>
         </section>
       </form>
 
-      {/* ---- Lançamentos do mês ---- */}
-      <h2 style={{ marginBottom: ".8rem" }}>Lançamentos de {mesLabel} ({f.entries.length})</h2>
+      {/* ---- Extrato / Lançamentos ---- */}
+      <div className="phead" style={{ marginBottom: ".8rem" }}>
+        <h2>
+          Extrato · {filtro ? KPI_LABEL[filtro] : `vencimentos de ${mesLabel}`}
+          {cat ? ` · ${FIN_CATEGORY[cat] ?? cat}` : ""} ({f.entries.length})
+        </h2>
+        <form method="GET" action="/painel/financeiro" style={{ display: "flex", gap: ".5rem" }}>
+          <input type="hidden" name="mes" value={mesStr} />
+          {filtro && <input type="hidden" name="filtro" value={filtro} />}
+          {cat && <input type="hidden" name="cat" value={cat} />}
+          <input name="q" defaultValue={q ?? ""} placeholder="Buscar descrição, imóvel, corretor..." style={{ minWidth: 240 }} />
+          <button className="btn-outline" type="submit">Buscar</button>
+        </form>
+      </div>
+      {(filtro || cat || q) && (
+        <p style={{ marginBottom: ".8rem" }}>
+          <Link className="pill" href={`/painel/financeiro?mes=${mesStr}`} style={{ textDecoration: "none" }}>✕ Limpar filtros</Link>
+        </p>
+      )}
       {f.entries.length === 0 ? (
         <p style={{ color: "var(--stone)" }}>Nenhum lançamento com vencimento neste mês — use "Novo lançamento" acima ou navegue entre os meses.</p>
       ) : (
         <table className="table">
-          <thead><tr><th>Venc.</th><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Venc.</th><th>Descrição</th><th>Categoria</th><th>Imóvel</th><th>Corretor</th><th>Valor</th><th>Status</th><th>Criado por</th><th></th></tr></thead>
           <tbody>
             {f.entries.map((e: any) => {
               const overdue = !e.paidAt && +new Date(e.dueDate) < Date.now();
               return (
                 <tr key={e.id} style={{ opacity: e.paidAt ? 0.55 : 1 }}>
                   <td>{fmtD(e.dueDate)}</td>
-                  <td>{e.description}{e.contract?.proposal?.property?.title ? <span style={{ color: "var(--stone)" }}> · {e.contract.proposal.property.title}</span> : null}</td>
+                  <td>{e.description}</td>
                   <td><span className="pill">{FIN_CATEGORY[e.category] ?? e.category}</span></td>
+                  <td>
+                    {(e.property ?? e.contract?.proposal?.property) ? (
+                      <Link href={`/painel/imoveis/${(e.property ?? e.contract?.proposal?.property).id}`}
+                            style={{ color: "var(--brass)", textDecoration: "underline", textUnderlineOffset: 3 }}>
+                        {(e.property ?? e.contract?.proposal?.property).title}
+                      </Link>
+                    ) : "—"}
+                  </td>
+                  <td>
+                    {e.agent ? (
+                      <Link href={`/painel/corretores/${e.agent.id}`}
+                            style={{ color: "var(--brass)", textDecoration: "underline", textUnderlineOffset: 3 }}>
+                        {e.agent.name}
+                      </Link>
+                    ) : "—"}
+                  </td>
                   <td style={{ whiteSpace: "nowrap" }}>{e.direction === "IN" ? "+" : "−"}{brl(e.amount)}</td>
                   <td>
                     <span className="pill" style={overdue ? { borderColor: "#c67a6b", color: "#c67a6b" } : undefined}>
                       {e.paidAt ? (e.direction === "IN" ? "Recebido" : "Pago") : overdue ? "Vencido" : "Em aberto"}
                     </span>
                   </td>
+                  <td style={{ color: "var(--stone)", fontSize: ".8rem" }}>{e.createdBy ?? "—"}</td>
                   <td>
                     <form action={toggleFinancePaid}>
                       <input type="hidden" name="id" value={e.id} />

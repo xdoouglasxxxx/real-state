@@ -644,7 +644,9 @@ export const FIN_CATEGORY: Record<string, string> = {
 };
 
 /** Visão financeira: KPIs do mês, fluxo 6 meses, DRE por categoria e comissões. */
-export async function getFinance(orgId: string, year: number, month: number) {
+export type FinanceFilter = { kpi?: string; cat?: string; q?: string };
+
+export async function getFinance(orgId: string, year: number, month: number, filter: FinanceFilter = {}) {
   const empty = {
     kpis: { inPaid: 0, outPaid: 0, result: 0, toReceive: 0, toPay: 0, overdue: 0 },
     flow: [] as { label: string; inn: number; out: number }[],
@@ -688,12 +690,31 @@ export async function getFinance(orgId: string, year: number, month: number) {
         where: { organizationId: orgId, paidAt: { gte: mStart, lte: mEnd } },
         _sum: { amount: true },
       }),
-      // lançamentos do mês (vencimento no mês)
+      // extrato: janela definida pelo KPI clicado (padrão: vencimento no mês)
       prisma.financeEntry.findMany({
-        where: { organizationId: orgId, dueDate: { gte: mStart, lte: mEnd } },
+        where: {
+          organizationId: orgId,
+          ...(filter.kpi === "recebido" ? { direction: "IN", paidAt: { gte: mStart, lte: mEnd } }
+            : filter.kpi === "pago" ? { direction: "OUT", paidAt: { gte: mStart, lte: mEnd } }
+            : filter.kpi === "resultado" ? { paidAt: { gte: mStart, lte: mEnd } }
+            : filter.kpi === "a_receber" ? { direction: "IN", paidAt: null, dueDate: { gte: mStart, lte: mEnd } }
+            : filter.kpi === "a_pagar" ? { direction: "OUT", paidAt: null, dueDate: { gte: mStart, lte: mEnd } }
+            : filter.kpi === "vencidos" ? { paidAt: null, dueDate: { lt: now } }
+            : { dueDate: { gte: mStart, lte: mEnd } }),
+          ...(filter.cat ? { category: filter.cat as any } : {}),
+          ...(filter.q ? { OR: [
+              { description: { contains: filter.q, mode: "insensitive" } },
+              { property: { title: { contains: filter.q, mode: "insensitive" } } },
+              { agent: { name: { contains: filter.q, mode: "insensitive" } } },
+            ] } : {}),
+        },
         orderBy: [{ paidAt: "asc" }, { dueDate: "asc" }],
         take: 200,
-        include: { contract: { select: { id: true, proposal: { select: { property: { select: { title: true } } } } } } },
+        include: {
+          property: { select: { id: true, title: true } },
+          agent: { select: { id: true, name: true } },
+          contract: { select: { id: true, proposal: { select: { property: { select: { id: true, title: true } } } } } },
+        },
       }),
       // comissões pendentes (todas) + pagas no mês
       prisma.commission.findMany({

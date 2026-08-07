@@ -150,6 +150,7 @@ model Agent {
   goals       Goal[]
 
   @@index([organizationId])
+  financeEntries FinanceEntry[]
 }
 
 // Cliente, proprietário ou ambos — pessoa de contato
@@ -242,6 +243,7 @@ model Property {
   @@index([organizationId, status])
   @@index([organizationId, city, neighborhood])
   @@index([organizationId, price])
+  financeEntries FinanceEntry[]
 }
 
 enum PropertyType {
@@ -534,6 +536,11 @@ model FinanceEntry {
 
   @@index([organizationId, dueDate])
   @@index([organizationId, direction, category])
+  createdBy      String? // rastreabilidade: quem lançou (Financeiro v2)
+  propertyId     String?
+  property       Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  agentId        String?
+  agent          Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
 }
 
 enum FlowDir {

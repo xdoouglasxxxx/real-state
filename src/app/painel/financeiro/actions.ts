@@ -19,7 +19,7 @@ export async function createFinanceEntry(formData: FormData) {
   const direction = String(formData.get("direction") ?? "");
   const category = String(formData.get("category") ?? "");
   const description = String(formData.get("description") ?? "").trim();
-  const amount = Number(String(formData.get("amount") ?? "").replace(/\./g, "").replace(",", "."));
+  const amount = Number(String(formData.get("amount") ?? "").replace(/[^\d,]/g, "").replace(",", "."));
   const dueDate = String(formData.get("dueDate") ?? "");
   const alreadyPaid = formData.get("alreadyPaid") === "on";
 
@@ -29,6 +29,13 @@ export async function createFinanceEntry(formData: FormData) {
   }
 
   try {
+    // Blindagem: vínculos só DESTE tenant
+    const rawProp = String(formData.get("propertyId") ?? "");
+    const rawAgent = String(formData.get("agentId") ?? "");
+    const [propOk, agentOk] = await Promise.all([
+      rawProp ? prisma.property.findFirst({ where: { id: rawProp, organizationId: ctx.org.id }, select: { id: true } }) : null,
+      rawAgent ? prisma.agent.findFirst({ where: { id: rawAgent, organizationId: ctx.org.id }, select: { id: true } }) : null,
+    ]);
     const due = new Date(`${dueDate}T12:00:00-03:00`);
     await prisma.financeEntry.create({
       data: {
@@ -39,6 +46,9 @@ export async function createFinanceEntry(formData: FormData) {
         amount,
         dueDate: due,
         paidAt: alreadyPaid ? due : null,
+        propertyId: propOk?.id ?? null,
+        agentId: agentOk?.id ?? null,
+        createdBy: ctx.master ? "Master (plataforma)" : ctx.email,
       },
     });
   } catch (e) {
@@ -92,6 +102,8 @@ export async function payCommission(formData: FormData) {
           amount: cm.amount,
           dueDate: now,
           paidAt: now,
+          agentId: cm.agentId,
+          createdBy: ctx.master ? "Master (plataforma)" : ctx.email,
         },
       });
     }
