@@ -5,7 +5,7 @@
 # Recomendação futura: criar um usuário Postgres SOMENTE-LEITURA no Supabase
 # para este secret (princípio do menor privilégio).
 # ============================================================
-name: Smoke Check
+name: Daily Health Check
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
       - name: Node 20
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Instalar dependências
@@ -47,6 +47,7 @@ jobs:
           --base https://maisonstate.vercel.app
           --host maison.maisonstate.vercel.app
           --tenant maison
+          --json healthcheck-maison.json
 
       - name: Smoke check — demo maison-prime
         if: always() # roda mesmo se o primeiro falhar (relatório completo)
@@ -57,3 +58,12 @@ jobs:
           --base https://maisonstate.vercel.app
           --host maison-prime.maisonstate.vercel.app
           --tenant maison-prime
+          --json healthcheck-maison-prime.json
+
+      - name: Publicar histórico (JSON)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: healthcheck-${{ github.run_number }}
+          path: healthcheck-*.json
+          retention-days: 90
