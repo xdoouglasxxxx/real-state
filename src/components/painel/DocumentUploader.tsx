@@ -2,11 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { prepareDocumentUpload, registerDocument } from "@/app/painel/documentos/actions";
-
-const KIND_LABEL: Record<string, string> = {
-  MATRICULA: "Matrícula", IPTU: "IPTU", ESCRITURA: "Escritura", ONUS: "Certidão de ônus",
-  LAUDO: "Laudo", CONTRATO: "Contrato", PROCURACAO: "Procuração", COMPROVANTE: "Comprovante", RG: "RG", CPF: "CPF", OUTRO: "Outro",
-};
+import { KIND_LABEL } from "@/lib/doc-kinds"; // Q1: fonte única — não duplicar aqui e na listagem
 
 type Opt = { id: string; label: string };
 

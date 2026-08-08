@@ -4,20 +4,17 @@ import { requireManagerUp } from "@/lib/perm";
 import { storageEnabled } from "@/lib/storage";
 import DocumentUploader from "@/components/painel/DocumentUploader";
 import { deleteDocument } from "./actions";
+import { KIND_LABEL } from "@/lib/doc-kinds"; // Q1: fonte única — não duplicar aqui e no uploader
 
 export const dynamic = "force-dynamic";
 
-const KIND_LABEL: Record<string, string> = {
-  MATRICULA: "Matrícula", IPTU: "IPTU", ESCRITURA: "Escritura", ONUS: "Certidão de ônus",
-  LAUDO: "Laudo", CONTRATO: "Contrato", PROCURACAO: "Procuração", COMPROVANTE: "Comprovante", RG: "RG", CPF: "CPF", OUTRO: "Outro",
-};
-
 const fmtD = (x: Date | string) => new Date(x).toLocaleDateString("pt-BR");
 
-export default async function Documentos() {
+export default async function Documentos({ searchParams }: { searchParams: { erro?: string } }) {
   const ctx = await requireManagerUp();
 
   let docs: any[] = [], properties: any[] = [], contracts: any[] = [], finances: any[] = [];
+  let loadError = false;
   if (process.env.DATABASE_URL) {
     try {
       [docs, properties, contracts, finances] = await Promise.all([
@@ -38,7 +35,11 @@ export default async function Documentos() {
         }),
         prisma.financeEntry.findMany({ where: { organizationId: ctx.org.id }, orderBy: { dueDate: "desc" }, take: 60, select: { id: true, description: true } }),
       ]);
-    } catch {}
+    } catch (e) {
+      // B7: logar o erro com prefixo identificável; exibir aviso em vez de página silenciosamente vazia.
+      console.error("Documentos page — falha ao carregar dados:", e);
+      loadError = true;
+    }
   }
 
   return (
@@ -48,6 +49,12 @@ export default async function Documentos() {
         <span className="pill">{docs.length} arquivos</span>
       </div>
 
+      {searchParams.erro === "1" && (
+        <p className="pform-error">Erro ao excluir o documento — tente novamente ou contacte o suporte.</p>
+      )}
+      {loadError && (
+        <p className="pform-error">Não foi possível carregar os documentos. Verifique a conexão com o banco e recarregue a página.</p>
+      )}
       {!storageEnabled() && (
         <p className="pform-error">
           Storage não configurado — os documentos antigos (por URL) continuam funcionando, mas o upload fica desativado.

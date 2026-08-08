@@ -60,13 +60,18 @@ export async function registerDocument(input: {
 export async function deleteDocument(formData: FormData) {
   const ctx = await requireAdmin();
   const id = String(formData.get("id") ?? "");
+  // B3: distinguir falha de sucesso — catch não pode redirect de sucesso silenciosamente.
+  let failed = false;
   try {
     const doc = await prisma.document.findFirst({ where: { id, organizationId: ctx.org.id } });
     if (doc) {
       await prisma.document.delete({ where: { id: doc.id } });
       if (!doc.fileUrl.startsWith("http")) await deleteObject(doc.fileUrl);
     }
-  } catch (e) { console.error("deleteDocument:", e); }
+  } catch (e) {
+    console.error("deleteDocument:", e);
+    failed = true;
+  }
   revalidatePath("/painel/documentos");
-  redirect("/painel/documentos");
+  redirect(failed ? "/painel/documentos?erro=1" : "/painel/documentos");
 }

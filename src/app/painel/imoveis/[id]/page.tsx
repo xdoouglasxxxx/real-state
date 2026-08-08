@@ -46,23 +46,27 @@ export default async function EditarImovel({
 
       <FinancingSimulator price={Number((property as any).price ?? 0)} />
 
-      <JuridicalDocs propertyId={(property as any).id} />
+      <JuridicalDocs propertyId={(property as any).id} orgId={org.id} />
     </>
   );
 }
 
 
 /** Documentação jurídica do imóvel: badges de presença + lista dos arquivos. */
-async function JuridicalDocs({ propertyId }: { propertyId: string }) {
+async function JuridicalDocs({ propertyId, orgId }: { propertyId: string; orgId: string }) {
   let docs: any[] = [];
   if (process.env.DATABASE_URL) {
     try {
       docs = await prisma.document.findMany({
-        where: { propertyId },
+        // Q2: filtrar por organizationId além de propertyId — defesa em profundidade multi-tenant.
+        where: { propertyId, organizationId: orgId },
         orderBy: { uploadedAt: "desc" },
         select: { id: true, name: true, kind: true, fileUrl: true, uploadedAt: true },
       });
-    } catch {}
+    } catch (e) {
+      // B6: logar o erro com prefixo identificável em vez de catch vazio.
+      console.error("JuridicalDocs — falha ao carregar documentos:", e);
+    }
   }
   const has = (k: string) => docs.some((d) => d.kind === k);
   const CORE: [string, string][] = [["MATRICULA", "Matrícula"], ["IPTU", "IPTU"], ["ESCRITURA", "Escritura"], ["ONUS", "Certidão de ônus"]];
