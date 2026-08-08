@@ -161,7 +161,7 @@ try {
 sect("SITE PÚBLICO");
 try {
   for (const [path, mustHave, label] of [
-    ["/", org?.name ?? "", "Home"],
+    ["/", "", "Home"],
     ["/imoveis", "", "Vitrine /imoveis"],
     ["/sobre", "", "Página /sobre"],
     ["/blog", "", "Blog"],
@@ -172,6 +172,14 @@ try {
     if (r.status !== 200) bad(label, r.status === 0 ? `REDE: ${r.err}` : `HTTP ${r.status}`);
     else if (mustHave && !r.body.includes(mustHave)) bad(label, `200 mas sem '${mustHave}'`);
     else ok(label);
+  }
+  // Home contém o nome do tenant (tolerante: logos quebram o nome em spans/caixa alta)
+  if (org?.name) {
+    const home = await get("/");
+    const parts = org.name.split(/\s+/).filter((w) => w.length > 2);
+    const found = parts.every((w) => new RegExp(w, "i").test(home.body));
+    found ? ok("Home exibe a marca do tenant", org.name)
+      : bad("Home sem a marca do tenant", `palavras de '${org.name}' não encontradas`);
   }
   const sm = await get("/sitemap.xml");
   sm.status === 200 && sm.body.includes("/imovel/") ? ok("Sitemap com imóveis") : bad("Sitemap", `HTTP ${sm.status}`);
@@ -198,24 +206,31 @@ try {
 // Tour virtual: iframe só com sandbox + host confiável (fix H3)
 try {
   if (org) {
-    const tp = await prisma.property.findFirst({
-      where: { organizationId: org.id, tourUrl: { not: null }, status: { in: ["FOR_SALE", "EXCLUSIVE", "RESERVED"] } },
-      select: { slug: true, title: true },
-    });
-    if (!tp) skip("Tour virtual (H3)", "nenhum imóvel com tourUrl visível");
+    const col = await prisma.$queryRawUnsafe(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name='Property' AND column_name IN ('tourUrl','tour','virtualTourUrl','videoUrl') LIMIT 1`);
+    if (!col.length) skip("Tour virtual (H3)", "campo de tour não encontrado no Property");
     else {
-      const pg = await get(`/imovel/${tp.slug}`);
-      if (pg.status !== 200) bad("Tour virtual (H3)", `HTTP ${pg.status}`);
-      else if (!pg.body.includes("<iframe")) info("Tour virtual (H3)", "iframe não renderizado (host fora da lista? verificar)");
+      const c = col[0].column_name;
+      const rows = await prisma.$queryRawUnsafe(`
+        SELECT "slug", "title" FROM "Property"
+        WHERE "organizationId"='${org.id}' AND "${c}" IS NOT NULL
+          AND "status"::text IN ('FOR_SALE','EXCLUSIVE','RESERVED') LIMIT 1`);
+      if (!rows.length) skip("Tour virtual (H3)", "nenhum imóvel com tour visível");
       else {
-        const sandboxed = /<iframe[^>]+sandbox/i.test(pg.body);
-        const goodHost = /(matterport|youtube|youtu\.be|vimeo|kuula)/i.test(pg.body);
-        sandboxed && goodHost ? ok("Tour virtual com sandbox + host confiável", tp.title)
-          : bad("Tour virtual (H3)", `sandbox: ${sandboxed} · host confiável: ${goodHost}`);
+        const pg2 = await get(`/imovel/${rows[0].slug}`);
+        if (pg2.status !== 200) bad("Tour virtual (H3)", `HTTP ${pg2.status}`);
+        else if (!pg2.body.includes("<iframe")) info("Tour virtual (H3)", "iframe não renderizado (host fora da lista? verificar)");
+        else {
+          const sandboxed = /<iframe[^>]+sandbox/i.test(pg2.body);
+          const goodHost = /(matterport|youtube|youtu\.be|vimeo|kuula)/i.test(pg2.body);
+          sandboxed && goodHost ? ok("Tour virtual com sandbox + host confiável", rows[0].title)
+            : bad("Tour virtual (H3)", `sandbox: ${sandboxed} · host confiável: ${goodHost}`);
+        }
       }
     }
   }
-} catch (e) { bad("Tour H3 (query)", String(e.message).slice(0, 120)); }
+} catch (e) { bad("Tour H3 (query)", String(e.message).replace(/\n/g, " ").slice(0, 140)); }
 
 sect("FORMULÁRIOS · LGPD");
 let slugProp = null;
@@ -314,9 +329,10 @@ try {
     else {
       const c = col[0].column_name;
       const last = await prisma.$queryRawUnsafe(`
-        SELECT "name", "propertyId", "${c}" AS score FROM "Lead"
-        WHERE "organizationId" = '${org.id}' AND "source"::text = 'SITE'
-        ORDER BY "createdAt" DESC LIMIT 5`);
+        SELECT co."name", l."propertyId", l."${c}" AS score
+        FROM "Lead" l JOIN "Contact" co ON co."id" = l."contactId"
+        WHERE l."organizationId" = '${org.id}' AND l."source"::text = 'SITE'
+        ORDER BY l."createdAt" DESC LIMIT 5`);
       if (!last.length) skip("Score inicial por regras", "nenhum lead SITE — envie um pelo formulário e rode de novo");
       else {
         const zeroWithProp = last.filter((l) => l.propertyId && Number(l.score ?? 0) === 0);
