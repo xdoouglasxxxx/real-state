@@ -1,13 +1,13 @@
 "use client";
 import { useState } from "react";
-import { MCMV_TETO_IMOVEL, ITBI_PCT, ESCRITURA_REGISTRO_PCT } from "@/lib/financing";
+import { MCMV_TETO_IMOVEL, ITBI_PCT, ESCRITURA_REGISTRO_PCT, type FinancingRate } from "@/lib/financing";
 
 const fmt = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
 /** Simulador de financiamento — cálculo local (Price e SAC), sem API externa.
  *  Ferramenta de conversa do corretor com o cliente; não é proposta de crédito. */
-export default function FinancingSimulator({ price }: { price: number }) {
+export default function FinancingSimulator({ price, rates = [] }: { price: number; rates?: FinancingRate[] }) {
   const [valor, setValor] = useState(Math.round(price));
   const [entradaPct, setEntradaPct] = useState(20);
   const [fgts, setFgts] = useState(0);
@@ -52,6 +52,19 @@ export default function FinancingSimulator({ price }: { price: number }) {
         <Field label="Valor do imóvel" value={valor} onChange={setValor} step={10000} />
         <Field label="Entrada" value={entradaPct} onChange={setEntradaPct} suffix="%" step={5} />
         <Field label="FGTS (R$)" value={fgts} onChange={setFgts} step={5000} />
+        {rates.length > 0 && (
+          <label>Banco
+            <select defaultValue="" onChange={(e) => {
+              const r = rates.find((r) => r.banco === e.target.value);
+              if (r) setTaxaAA(r.taxa);
+            }}>
+              <option value="">— selecione —</option>
+              {rates.map((r) => (
+                <option key={r.banco} value={r.banco}>{r.banco} ({r.taxa}% a.a.)</option>
+              ))}
+            </select>
+          </label>
+        )}
         <Field label="Juros ao ano" value={taxaAA} onChange={setTaxaAA} suffix="% a.a." step={0.5} />
         <Field label="Prazo" value={anos} onChange={setAnos} suffix="anos" step={5} min={1} />
       </div>

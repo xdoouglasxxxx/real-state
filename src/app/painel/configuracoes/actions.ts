@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/perm";
+import type { FinancingRate } from "@/lib/financing";
 
 export async function updateOrganization(formData: FormData) {
   const { org } = await requireAdmin();
@@ -28,5 +29,26 @@ export async function updateOrganization(formData: FormData) {
     console.error("updateOrganization:", e);
   }
   revalidatePath("/", "layout");
+  redirect("/painel/configuracoes?salvo=1");
+}
+
+export async function saveFinancingRates(formData: FormData) {
+  const { org } = await requireAdmin();
+
+  const rates: FinancingRate[] = [];
+  for (let idx = 0; idx < 10; idx++) {
+    const banco = String(formData.get(`banco_${idx}`) ?? "").trim().slice(0, 40);
+    const taxa = Number(formData.get(`taxa_${idx}`) ?? "");
+    if (!banco || !taxa) continue;
+    if (taxa < 1 || taxa > 30) continue;
+    rates.push({ banco, taxa });
+  }
+
+  try {
+    await prisma.organization.update({ where: { id: org.id }, data: { financingRates: rates } });
+  } catch (e) {
+    console.error("saveFinancingRates:", e);
+  }
+  revalidatePath("/painel/configuracoes");
   redirect("/painel/configuracoes?salvo=1");
 }

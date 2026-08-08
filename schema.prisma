@@ -33,6 +33,7 @@ model Organization {
   email     String?
   address   String?
   city      String?
+  financingRates Json? // taxas por banco: [{banco:string, taxa:number}] — migração 22
   // Self-service: credenciais do administrador do tenant
   adminEmail    String?
   panelPassHash String?

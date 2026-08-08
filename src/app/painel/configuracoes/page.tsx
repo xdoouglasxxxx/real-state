@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/perm";
 import { prisma } from "@/lib/prisma";
-import { updateOrganization } from "./actions";
+import { updateOrganization, saveFinancingRates } from "./actions";
+import type { FinancingRate } from "@/lib/financing";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,10 @@ export default async function Configuracoes({ searchParams }: { searchParams: { 
   } catch {}
 
   const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "sua-plataforma.com.br";
+  const existingRates: FinancingRate[] = Array.isArray((org as any).financingRates)
+    ? (org as any).financingRates : [];
+  const rateRows = Array.from({ length: 10 }, (_, i): FinancingRate =>
+    existingRates[i] ?? { banco: "", taxa: 0 });
 
   return (
     <>
@@ -62,6 +67,33 @@ export default async function Configuracoes({ searchParams }: { searchParams: { 
         <div className="pform-footer">
           <button className="btn-solid" type="submit">Salvar configurações</button>
         </div>
+      </form>
+
+      <form action={saveFinancingRates} className="pform" style={{ marginTop: "1.5rem" }}>
+        <section>
+          <h2>Taxas de financiamento</h2>
+          <p className="pform-hint">
+            Exibidas no simulador da ficha do imóvel — o corretor seleciona o banco e o campo de
+            juros é preenchido automaticamente. Deixe em branco as linhas não usadas. Taxa entre
+            1% e 30%; nome do banco até 40 caracteres; máximo 10 entradas.
+          </p>
+          <div className="pgrid">
+            {rateRows.map((r, i) => (
+              <>
+                <label key={`b${i}`}>Banco {i + 1}
+                  <input name={`banco_${i}`} defaultValue={r.banco} maxLength={40} placeholder="ex.: Caixa" />
+                </label>
+                <label key={`t${i}`}>Taxa (% a.a.)
+                  <input name={`taxa_${i}`} type="number" step={0.01} min={0} max={30}
+                    defaultValue={r.taxa > 0 ? r.taxa : ""} placeholder="ex.: 10.49" />
+                </label>
+              </>
+            ))}
+          </div>
+          <div className="pform-footer">
+            <button className="btn-solid" type="submit">Salvar taxas</button>
+          </div>
+        </section>
       </form>
     </>
   );

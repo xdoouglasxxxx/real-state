@@ -5,6 +5,7 @@ import { getTenant } from "@/lib/tenant";
 import { getPropertyBySlug, getSimilar } from "@/lib/data";
 import { submitVisitInquiry } from "@/app/actions";
 import { brl, STATUS_LABEL, TYPE_LABEL } from "@/lib/format";
+import { MCMV_TETO_IMOVEL } from "@/lib/financing";
 import Gallery from "@/components/site/Gallery";
 import PropertyCard from "@/components/site/PropertyCard";
 
@@ -98,6 +99,11 @@ export default async function PropertyPage({ params, searchParams }: Props) {
           <p className="eyebrow">{p.neighborhood} · {p.city}</p>
           <h1>{p.title}</h1>
           <p className="detail-price">{brl(p.price)}</p>
+          {Number(p.price) <= MCMV_TETO_IMOVEL && !["RENTED", "SOLD"].includes(p.status) && (
+            <span style={{ display: "inline-block", marginBottom: ".6rem", fontSize: ".72rem", letterSpacing: ".15em", textTransform: "uppercase", fontWeight: 600, padding: ".3rem .7rem", borderRadius: 999, background: "#2c6e49", color: "#e8f5e9" }}>
+              Financiável · MCMV
+            </span>
+          )}
           <p className="card-specs big">
             {p.bedrooms} quartos · {p.bathrooms} banheiros · {p.areaM2} m² · {TYPE_LABEL[p.type] ?? p.type}
           </p>

@@ -6,6 +6,7 @@ import { setPropertyStatus } from "@/app/painel/actions";
 import PropertyForm from "@/components/painel/PropertyForm";
 import FinancingSimulator from "@/components/painel/FinancingSimulator";
 import { prisma } from "@/lib/prisma";
+import type { FinancingRate } from "@/lib/financing";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +14,14 @@ export default async function EditarImovel({
   params, searchParams,
 }: { params: { id: string }; searchParams: { erro?: string; salvo?: string } }) {
   const { org } = await requireManagerUp();
-  const [property, agents] = await Promise.all([
+  const [property, agents, orgData] = await Promise.all([
     getPanelProperty(org.id, params.id),
     getAgents(org.id),
+    prisma.organization.findUnique({ where: { id: org.id }, select: { financingRates: true } }).catch(() => null),
   ]);
   if (!property) notFound();
+  const financingRates: FinancingRate[] = Array.isArray((orgData as any)?.financingRates)
+    ? (orgData as any).financingRates : [];
 
   const StatusBtn = ({ status, label }: { status: string; label: string }) => (
     <form action={setPropertyStatus}>
@@ -44,7 +48,7 @@ export default async function EditarImovel({
 
       <PropertyForm property={property} agents={agents as any} erro={searchParams.erro} />
 
-      <FinancingSimulator price={Number((property as any).price ?? 0)} />
+      <FinancingSimulator price={Number((property as any).price ?? 0)} rates={financingRates} />
 
       <JuridicalDocs propertyId={(property as any).id} orgId={org.id} />
     </>
