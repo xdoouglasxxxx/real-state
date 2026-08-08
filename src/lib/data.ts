@@ -360,7 +360,7 @@ export type DashAlert = { icon: string; text: string; href: string };
 
 /** Deltas vs. mesmo período do mês anterior, funil, alertas acionáveis,
  *  origem dos leads e ranking de corretores — tudo com queries no Supabase. */
-export async function getDashboardIntel(orgId: string) {
+export async function getDashboardIntel(orgId: string, opts: { finance?: boolean } = {}) {
   const demo = {
     deltas: { newLeads: 35, visitsDone: 20, sold: 100 },
     visitsDoneMonth: 6,
@@ -454,6 +454,25 @@ export async function getDashboardIntel(orgId: string) {
     if (coldLeads > 0) alerts.push({ icon: "🥶", text: `${coldLeads} lead${coldLeads > 1 ? "s" : ""} novo${coldLeads > 1 ? "s" : ""} sem contato há mais de 72h — cada hora custa conversão`, href: "/painel/leads" });
     if (orphanLeads > 0) alerts.push({ icon: "👤", text: `${orphanLeads} lead${orphanLeads > 1 ? "s" : ""} sem corretor responsável — atribua para não esfriar`, href: "/painel/leads" });
     if (staleProps > 0) alerts.push({ icon: "🏠", text: `${staleProps} imóve${staleProps > 1 ? "is" : "l"} há 90+ dias sem nenhuma visita — revise preço, fotos e destaque`, href: "/painel/imoveis" });
+
+    // vencimentos financeiros próximos (só para quem acessa o Financeiro)
+    if (opts.finance) {
+      try {
+        const d5 = new Date(Date.now() + 5 * 86400000);
+        const due = await prisma.financeEntry.aggregate({
+          where: { organizationId: orgId, paidAt: null, dueDate: { gte: new Date(), lte: d5 } },
+          _count: true, _sum: { amount: true },
+        });
+        if (due._count > 0) {
+          const { brlCompact } = await import("./format");
+          alerts.push({
+            icon: "💸",
+            text: `${due._count} lançamento${due._count > 1 ? "s" : ""} vence${due._count > 1 ? "m" : ""} nos próximos 5 dias — ${brlCompact(Number(due._sum.amount ?? 0))}: garanta o caixa`,
+            href: "/painel/financeiro",
+          });
+        }
+      } catch (e) { console.error("intel finance:", e); }
+    }
 
     const sources = leads90d
       .map((r) => ({
@@ -650,6 +669,7 @@ export async function getFinance(orgId: string, year: number, month: number, fil
   const empty = {
     kpis: { inPaid: 0, outPaid: 0, result: 0, toReceive: 0, toPay: 0, overdue: 0 },
     flow: [] as { label: string; inn: number; out: number }[],
+    forecast: [] as { label: string; inn: number; out: number }[],
     dre: [] as { category: string; direction: string; total: number }[],
     entries: [] as any[],
     commissions: [] as any[],
@@ -661,7 +681,8 @@ export async function getFinance(orgId: string, year: number, month: number, fil
     const now = new Date();
     const flowStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
-    const [paidAgg, openAgg, overdueAgg, flowRows, dreRows, entries, commissions] = await Promise.all([
+    const d90 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 90, 23, 59, 59);
+    const [paidAgg, openAgg, overdueAgg, flowRows, dreRows, entries, pendingAhead, commissions] = await Promise.all([
       // realizado no mês (pelo paidAt)
       prisma.financeEntry.groupBy({
         by: ["direction"],
@@ -714,8 +735,13 @@ export async function getFinance(orgId: string, year: number, month: number, fil
           property: { select: { id: true, title: true } },
           agent: { select: { id: true, name: true } },
           contract: { select: { id: true, proposal: { select: { property: { select: { id: true, title: true } } } } } },
-          documents: { select: { id: true, name: true }, orderBy: { uploadedAt: "desc" }, take: 1 },
+          documents: { select: { id: true, name: true }, take: 1 },
         },
+      }),
+      // previsão de caixa: pendentes dos próximos 90 dias
+      prisma.financeEntry.findMany({
+        where: { organizationId: orgId, paidAt: null, dueDate: { gte: now, lte: d90 } },
+        select: { direction: true, amount: true, dueDate: true },
       }),
       // comissões pendentes (todas) + pagas no mês
       prisma.commission.findMany({
@@ -753,12 +779,25 @@ export async function getFinance(orgId: string, year: number, month: number, fil
       return { label: MONTHS[m0], inn: v.inn, out: v.out };
     });
 
+    // buckets de previsão: 0-30 / 31-60 / 61-90 dias
+    const forecast = [
+      { label: "Próximos 30 dias", inn: 0, out: 0 },
+      { label: "31–60 dias", inn: 0, out: 0 },
+      { label: "61–90 dias", inn: 0, out: 0 },
+    ];
+    for (const r of pendingAhead) {
+      const days = Math.floor((+new Date(r.dueDate) - +now) / 86400000);
+      const b = days <= 30 ? 0 : days <= 60 ? 1 : 2;
+      forecast[b][r.direction === "IN" ? "inn" : "out"] += Number(r.amount);
+    }
+
     return {
       kpis: {
         inPaid, outPaid, result: inPaid - outPaid,
         toReceive: g(openAgg, "IN"), toPay: g(openAgg, "OUT"),
         overdue: Number(overdueAgg._sum.amount ?? 0),
       },
+      forecast,
       flow,
       dre: dreRows.map((r) => ({ category: String(r.category), direction: String(r.direction), total: Number(r._sum.amount ?? 0) }))
                   .sort((a, b) => (a.direction === b.direction ? b.total - a.total : a.direction === "IN" ? -1 : 1)),

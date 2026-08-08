@@ -112,7 +112,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { nega
   }
 
   // -------- Dashboard 2.0 da imobiliária (admin/gerente) --------
-  const [d, intel] = await Promise.all([getDashboard(ctx.org.id), getDashboardIntel(ctx.org.id)]);
+  const [d, intel] = await Promise.all([getDashboard(ctx.org.id), getDashboardIntel(ctx.org.id, { finance: ctx.isAdmin })]);
 
   // Projeção da meta pelo ritmo do mês + pipeline ponderado
   const now = new Date();

@@ -37,19 +37,30 @@ export async function createFinanceEntry(formData: FormData) {
       rawAgent ? prisma.agent.findFirst({ where: { id: rawAgent, organizationId: ctx.org.id }, select: { id: true } }) : null,
     ]);
     const due = new Date(`${dueDate}T12:00:00-03:00`);
-    await prisma.financeEntry.create({
-      data: {
+
+    // Recorrência SEM migração: cria as N parcelas futuras já como Previsto.
+    // Dia clampado ao fim do mês (31/01 → 28/02, não 03/03).
+    const repeatRaw = Number(formData.get("repeat") ?? 1);
+    const repeat = [1, 3, 6, 12].includes(repeatRaw) ? repeatRaw : 1;
+    const addMonths = (d: Date, i: number) => {
+      const y = d.getFullYear(), m = d.getMonth() + i, day = d.getDate();
+      const last = new Date(y, m + 1, 0).getDate();
+      return new Date(y, m, Math.min(day, last), 12);
+    };
+    const createdBy = ctx.master ? "Master (plataforma)" : ctx.email;
+    await prisma.financeEntry.createMany({
+      data: Array.from({ length: repeat }, (_, i) => ({
         organizationId: ctx.org.id,
         direction: direction as any,
         category: category as any,
-        description,
+        description: repeat > 1 ? `${description} (${i + 1}/${repeat})` : description,
         amount,
-        dueDate: due,
-        paidAt: alreadyPaid ? due : null,
+        dueDate: addMonths(due, i),
+        paidAt: alreadyPaid && i === 0 ? due : null,
         propertyId: propOk?.id ?? null,
         agentId: agentOk?.id ?? null,
-        createdBy: ctx.master ? "Master (plataforma)" : ctx.email,
-      },
+        createdBy,
+      })),
     });
   } catch (e) {
     rethrowRedirect(e);
@@ -60,22 +71,18 @@ export async function createFinanceEntry(formData: FormData) {
   redirect(`${back}&salvo=1`);
 }
 
-/** Marca como pago/recebido — ou estorna (volta para em aberto).
- *  M5: duas updateMany condicionais eliminam o read-then-write sem transação:
- *  a segunda só altera se o estado ainda for o esperado no momento da escrita. */
+/** Marca como pago/recebido — ou estorna (volta para em aberto). */
 export async function toggleFinancePaid(formData: FormData) {
   const ctx = await requireAdmin();
   const id = String(formData.get("id") ?? "");
   const back = `/painel/financeiro?mes=${String(formData.get("mes") ?? "")}`;
   try {
-    const markedPaid = await prisma.financeEntry.updateMany({
-      where: { id, organizationId: ctx.org.id, paidAt: null },
-      data: { paidAt: new Date() },
-    });
-    if (markedPaid.count === 0) {
-      await prisma.financeEntry.updateMany({
-        where: { id, organizationId: ctx.org.id, paidAt: { not: null } },
-        data: { paidAt: null },
+    // Blindagem: só lançamentos DESTE tenant
+    const entry = await prisma.financeEntry.findFirst({ where: { id, organizationId: ctx.org.id } });
+    if (entry) {
+      await prisma.financeEntry.update({
+        where: { id: entry.id },
+        data: { paidAt: entry.paidAt ? null : new Date() },
       });
     }
   } catch (e) { console.error("toggleFinancePaid:", e); }

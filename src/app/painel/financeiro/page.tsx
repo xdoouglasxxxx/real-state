@@ -103,6 +103,27 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
           <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".5rem" }}>Dourado = entradas · terracota = saídas (pelo que foi efetivamente pago).</p>
         </section>
 
+        {/* ---- Previsão de caixa ---- */}
+        <section className="ficha-box">
+          <h2>Previsão de caixa · 90 dias</h2>
+          {f.forecast.map((b: any) => (
+            <div key={b.label} style={{ marginBottom: ".7rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".82rem", marginBottom: ".2rem" }}>
+                <span>{b.label}</span>
+                <span style={{ color: (b.inn - b.out) >= 0 ? "var(--brass)" : "#e57373", fontWeight: 700 }}>
+                  {(b.inn - b.out) >= 0 ? "+" : "−"}{brlCompact(Math.abs(b.inn - b.out))}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".76rem", color: "var(--stone)" }}>
+                <span>a receber {brlCompact(b.inn)}</span><span>a pagar {brlCompact(b.out)}</span>
+              </div>
+            </div>
+          ))}
+          <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".5rem" }}>
+            Com base nos lançamentos previstos (não pagos). Vencidos em atraso ficam no indicador próprio acima.
+          </p>
+        </section>
+
         {/* ---- DRE simplificado ---- */}
         <section className="ficha-box">
           <h2>DRE simplificado · {mesLabel}</h2>
@@ -188,10 +209,21 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
                 {agents.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </label>
+            <label>Repetir mensalmente
+              <select name="repeat" defaultValue="1">
+                <option value="1">Não repetir</option>
+                <option value="3">3 meses</option>
+                <option value="6">6 meses</option>
+                <option value="12">12 meses</option>
+              </select>
+            </label>
             <label style={{ display: "flex", alignItems: "center", gap: ".5rem", marginTop: "1.4rem" }}>
               <input type="checkbox" name="alreadyPaid" style={{ width: "auto" }} /> Já pago/recebido
             </label>
           </div>
+          <p className="pform-hint" style={{ marginTop: ".4rem" }}>
+            Repetição cria as parcelas futuras de uma vez, como Previsto, numeradas (2/6, 3/6...) — edite ou estorne qualquer uma individualmente. "Já pago" vale só para a primeira.
+          </p>
           <div className="pform-footer"><button className="btn-solid" type="submit">Lançar com rastreabilidade</button></div>
         </section>
       </form>
@@ -208,6 +240,10 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
           {cat && <input type="hidden" name="cat" value={cat} />}
           <input name="q" defaultValue={q ?? ""} placeholder="Buscar descrição, imóvel, corretor..." style={{ minWidth: 240 }} />
           <button className="btn-outline" type="submit">Buscar</button>
+          <a className="btn-outline" style={{ whiteSpace: "nowrap" }}
+             href={`/painel/financeiro/exportar?mes=${mesStr}${filtro ? `&filtro=${filtro}` : ""}${cat ? `&cat=${cat}` : ""}${q ? `&q=${encodeURIComponent(q)}` : ""}`}>
+            ⬇ CSV
+          </a>
         </form>
       </div>
       {(filtro || cat || q) && (
