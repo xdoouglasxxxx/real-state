@@ -39,6 +39,7 @@ const ok = (name, detail = "") => results.push(["PASS", name, detail]);
 const bad = (name, detail = "") => results.push(["FAIL", name, detail]);
 const skip = (name, detail = "") => results.push(["SKIP", name, detail]);
 const info = (name, detail = "") => results.push(["INFO", name, detail]);
+const sect = (title) => results.push(["SECT", title, ""]);
 
 const HOST = arg("host", ""); // opcional: força o Host header (multi-tenant sem cert de sub-subdomínio)
 const get = async (path) => {
@@ -55,12 +56,39 @@ const get = async (path) => {
 
 console.log(`\n🔎 SMOKE CHECK — ${BASE} (tenant: ${TENANT})\n`);
 
+const post = async (path, body = "") => {
+  try {
+    const headers = { "user-agent": "smoke-check", "content-type": "application/json" };
+    if (HOST) headers.host = HOST;
+    const res = await fetch(BASE + path, { method: "POST", body, redirect: "manual", headers });
+    return { status: res.status };
+  } catch (e) { return { status: 0, err: String(e.cause?.code ?? e.message) }; }
+};
+
+sect("REPO LOCAL");
+/* ================= REPO LOCAL: fantasmas na raiz ================= */
+{
+  const ghosts = [];
+  if (existsSync("schema.prisma")) ghosts.push("schema.prisma");
+  for (const f of ["actions.ts", "contract-render.ts", "PrintButton.tsx", "page.tsx"]) {
+    if (existsSync(f)) ghosts.push(f);
+  }
+  try {
+    const { readdirSync } = await import("node:fs");
+    for (const f of readdirSync(".")) if (/^\d+_.*\.sql$/.test(f)) ghosts.push(f);
+  } catch {}
+  ghosts.length === 0
+    ? ok("Raiz do repo limpa (sem schema/sql/código fantasma)")
+    : bad("FANTASMAS NA RAIZ DO REPO", ghosts.join(", ") + " — o Prisma prioriza schema.prisma da raiz!");
+}
+
 let org = null;
 try {
   org = await prisma.organization.findFirst({ where: { slug: TENANT }, select: { id: true, name: true } });
   org ? ok("Tenant encontrado no banco", org.name) : bad("Tenant encontrado no banco", `slug '${TENANT}' não existe`);
 } catch (e) { bad("Conexão com o banco", String(e.message).slice(0, 120)); }
 
+sect("BANCO · MIGRAÇÕES");
 /* ================= BANCO: migrações 19/20 ================= */
 try {
   const cols = await prisma.$queryRawUnsafe(`
@@ -83,12 +111,113 @@ try {
 
 try {
   const fk = await prisma.$queryRawUnsafe(`
-    SELECT 1 FROM information_schema.table_constraints
-    WHERE constraint_name='RentPayment_financeEntryId_fkey' AND table_name='RentPayment'`);
+    SELECT 1 FROM pg_constraint WHERE conname='RentPayment_financeEntryId_fkey'`);
   fk.length ? ok("Migração 19: FK RentPayment→FinanceEntry") : bad("Migração 19: FK RentPayment→FinanceEntry", "constraint ausente");
 } catch (e) { bad("Migração 19 (FK)", String(e.message).slice(0, 120)); }
 
+try {
+  const t21 = await prisma.$queryRawUnsafe(`
+    SELECT 1 FROM information_schema.tables WHERE table_name='ContractTemplate'`);
+  t21.length ? ok("Migração 21: tabela ContractTemplate") : bad("Migração 21: ContractTemplate", "tabela ausente");
+} catch (e) { bad("Migração 21 (query)", String(e.message).slice(0, 120)); }
+
+try {
+  const c22 = await prisma.$queryRawUnsafe(`
+    SELECT 1 FROM information_schema.columns WHERE table_name='Organization' AND column_name='financingRates'`);
+  c22.length ? ok("Migração 22: coluna financingRates") : bad("Migração 22: financingRates", "coluna ausente");
+} catch (e) { bad("Migração 22 (query)", String(e.message).slice(0, 120)); }
+
+try {
+  const legacy = await prisma.$queryRawUnsafe(`
+    SELECT column_name FROM information_schema.columns
+    WHERE (table_name='Document' AND column_name IN ('organizationId','uploadedBy'))
+       OR (table_name='Commission' AND column_name='paidAmount')`);
+  legacy.length === 3 ? ok("Migrações 15/17: Document.org/uploadedBy + Commission.paidAmount")
+    : bad("Migrações 15/17", `encontradas ${legacy.length}/3 colunas`);
+  const dk = await prisma.$queryRawUnsafe(`
+    SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid
+    WHERE t.typname='DocKind' AND e.enumlabel='ONUS'`);
+  dk.length ? ok("Migração 16: DocKind estendido (ONUS...)") : bad("Migração 16: DocKind", "ONUS ausente");
+} catch (e) { bad("Migrações 15-17 (query)", String(e.message).slice(0, 120)); }
+
+try {
+  if (org) {
+    const tpls = await prisma.contractTemplate.count({ where: { organizationId: org.id } });
+    tpls >= 2 ? ok("Gerador: modelos do tenant", `${tpls} modelos (venda+locação)`)
+      : skip("Gerador: modelos do tenant", "0 — abra /painel/modelos uma vez (eles nascem no 1º acesso)");
+    const rates = await prisma.organization.findFirst({ where: { id: org.id }, select: { financingRates: true } });
+    const n = Array.isArray(rates?.financingRates) ? rates.financingRates.length : 0;
+    n > 0 ? ok("Simulador: taxas por banco cadastradas", `${n} banco(s)`)
+      : skip("Simulador: taxas por banco", "0 — cadastre em Configurações → Taxas de financiamento");
+    const rental = await prisma.rentalContract.findFirst({
+      where: { organizationId: org.id }, select: { id: true },
+    });
+    rental ? info("Gerador locação: teste manual", `/painel/locacao/${rental.id}/documento → 📄 🖨`)
+      : skip("Gerador locação", "nenhum contrato de locação — crie um para gerar o documento");
+  }
+} catch (e) { bad("Gerador/Simulador (queries)", String(e.message).slice(0, 120)); }
+
 /* ================= HTTP: páginas públicas ================= */
+sect("SITE PÚBLICO");
+try {
+  for (const [path, mustHave, label] of [
+    ["/", org?.name ?? "", "Home"],
+    ["/imoveis", "", "Vitrine /imoveis"],
+    ["/sobre", "", "Página /sobre"],
+    ["/blog", "", "Blog"],
+    ["/criar", "", "Página /criar (signup)"],
+    ["/login", "", "Página /login"],
+  ]) {
+    const r = await get(path);
+    if (r.status !== 200) bad(label, r.status === 0 ? `REDE: ${r.err}` : `HTTP ${r.status}`);
+    else if (mustHave && !r.body.includes(mustHave)) bad(label, `200 mas sem '${mustHave}'`);
+    else ok(label);
+  }
+  const sm = await get("/sitemap.xml");
+  sm.status === 200 && sm.body.includes("/imovel/") ? ok("Sitemap com imóveis") : bad("Sitemap", `HTTP ${sm.status}`);
+  const rb = await get("/robots.txt");
+  rb.status === 200 ? ok("robots.txt") : bad("robots.txt", `HTTP ${rb.status}`);
+} catch (e) { bad("Site público", String(e.message).slice(0, 120)); }
+
+// Vitrine: SOLD oculto (regra da Onda 2)
+try {
+  if (org) {
+    const sold = await prisma.property.findFirst({
+      where: { organizationId: org.id, status: "SOLD" }, select: { title: true },
+    });
+    if (!sold) skip("Vitrine: imóvel VENDIDO oculto", "nenhum SOLD no tenant");
+    else {
+      const listing = await get("/imoveis");
+      listing.status === 200 && !listing.body.includes(sold.title)
+        ? ok("Vitrine: imóvel VENDIDO oculto", sold.title)
+        : bad("Vitrine: VENDIDO visível!", sold.title);
+    }
+  }
+} catch (e) { bad("Vitrine SOLD (query)", String(e.message).slice(0, 120)); }
+
+// Tour virtual: iframe só com sandbox + host confiável (fix H3)
+try {
+  if (org) {
+    const tp = await prisma.property.findFirst({
+      where: { organizationId: org.id, tourUrl: { not: null }, status: { in: ["FOR_SALE", "EXCLUSIVE", "RESERVED"] } },
+      select: { slug: true, title: true },
+    });
+    if (!tp) skip("Tour virtual (H3)", "nenhum imóvel com tourUrl visível");
+    else {
+      const pg = await get(`/imovel/${tp.slug}`);
+      if (pg.status !== 200) bad("Tour virtual (H3)", `HTTP ${pg.status}`);
+      else if (!pg.body.includes("<iframe")) info("Tour virtual (H3)", "iframe não renderizado (host fora da lista? verificar)");
+      else {
+        const sandboxed = /<iframe[^>]+sandbox/i.test(pg.body);
+        const goodHost = /(matterport|youtube|youtu\.be|vimeo|kuula)/i.test(pg.body);
+        sandboxed && goodHost ? ok("Tour virtual com sandbox + host confiável", tp.title)
+          : bad("Tour virtual (H3)", `sandbox: ${sandboxed} · host confiável: ${goodHost}`);
+      }
+    }
+  }
+} catch (e) { bad("Tour H3 (query)", String(e.message).slice(0, 120)); }
+
+sect("FORMULÁRIOS · LGPD");
 let slugProp = null;
 try {
   if (org) {
@@ -137,6 +266,7 @@ if (slugProp) {
     : bad("Privacidade: seção LGPD", "menções a LGPD/consentimento não encontradas");
 }
 
+sect("LOCAÇÃO · CONTRATOS · SIMULADOR");
 /* ============ Locação 2B: RENTED fora da vitrine ============ */
 try {
   if (org) {
@@ -153,6 +283,25 @@ try {
     }
   }
 } catch (e) { bad("Vitrine RENTED (query)", String(e.message).slice(0, 120)); }
+
+/* ============ Badge MCMV na vitrine (Simulador v2) ============ */
+try {
+  if (org) {
+    const cheap = await prisma.property.findFirst({
+      where: { organizationId: org.id, status: { in: ["FOR_SALE", "EXCLUSIVE"] }, price: { lte: 500000 } },
+      select: { title: true, slug: true },
+    });
+    if (!cheap) skip("Badge MCMV na vitrine", "nenhum imóvel ≤ R$ 500k à venda no tenant");
+    else {
+      const listing = await get("/imoveis");
+      const pg = await get(`/imovel/${cheap.slug}`);
+      const inList = listing.status === 200 && /MCMV/i.test(listing.body);
+      const inPage = pg.status === 200 && /MCMV/i.test(pg.body);
+      inList && inPage ? ok("Badge MCMV na vitrine e na página", cheap.title)
+        : bad("Badge MCMV", `listagem: ${inList ? "ok" : "ausente"} · página: ${inPage ? "ok" : "ausente"} (${cheap.title})`);
+    }
+  }
+} catch (e) { bad("Badge MCMV (query)", String(e.message).slice(0, 120)); }
 
 /* ============ Score inicial (Bloco 3) ============ */
 try {
@@ -188,6 +337,7 @@ try {
   }
 } catch (e) { bad("LGPD (query)", String(e.message).slice(0, 120)); }
 
+sect("COMPLIANCE · SCORE");
 /* ============ CRECI e COAF: dados → alertas ============ */
 try {
   if (org) {
@@ -202,21 +352,69 @@ try {
   }
 } catch (e) { bad("CRECI/COAF (query)", String(e.message).slice(0, 120)); }
 
-/* ============ Segurança básica: painel exige login ============ */
-{
-  const painel = await get("/painel");
-  painel.status >= 300 && painel.status < 400 && painel.location.includes("login")
-    ? ok("Segurança: /painel redireciona para login sem sessão")
-    : painel.status === 200
-      ? bad("Segurança: /painel SEM redirect de login", "verifique o middleware!")
-      : info("Segurança: /painel", `HTTP ${painel.status}`);
+sect("SEGURANÇA");
+for (const path of ["/painel", "/painel/financeiro", "/painel/usuarios", "/cliente"]) {
+  const r = await get(path);
+  r.status >= 300 && r.status < 400 && (r.location.includes("login") || r.location === "/")
+    ? ok(`Auth: ${path} exige login`)
+    : r.status === 200
+      ? bad(`Auth: ${path} ABERTO sem sessão!`, "verifique o middleware")
+      : info(`Auth: ${path}`, `HTTP ${r.status}`);
 }
+{
+  const wh = await post("/api/stripe/webhook", "{}");
+  wh.status >= 400 && wh.status < 500
+    ? ok("Stripe webhook rejeita chamada sem assinatura", `HTTP ${wh.status}`)
+    : bad("Stripe webhook", wh.status === 0 ? `REDE: ${wh.err}` : `HTTP ${wh.status} (esperado 4xx)`);
+}
+
+sect("INTEGRIDADE MULTI-TENANT (banco)");
+try {
+  const leaks = await prisma.$queryRawUnsafe(`
+    SELECT 'Lead→Property' AS rel, count(*)::int AS n FROM "Lead" l JOIN "Property" p ON l."propertyId"=p.id WHERE l."organizationId"<>p."organizationId"
+    UNION ALL SELECT 'Document→Property', count(*)::int FROM "Document" d JOIN "Property" p ON d."propertyId"=p.id WHERE d."organizationId" IS NOT NULL AND d."organizationId"<>p."organizationId"
+    UNION ALL SELECT 'RentalContract→Property', count(*)::int FROM "RentalContract" r JOIN "Property" p ON r."propertyId"=p.id WHERE r."organizationId"<>p."organizationId"
+    UNION ALL SELECT 'Proposal→Property', count(*)::int FROM "Proposal" pr JOIN "Property" p ON pr."propertyId"=p.id WHERE pr."organizationId"<>p."organizationId"
+    UNION ALL SELECT 'Commission→Contract', count(*)::int FROM "Commission" c JOIN "Contract" k ON c."contractId"=k.id WHERE c."organizationId"<>k."organizationId"
+    UNION ALL SELECT 'FinanceEntry→Property', count(*)::int FROM "FinanceEntry" f JOIN "Property" p ON f."propertyId"=p.id WHERE f."organizationId"<>p."organizationId"`);
+  const dirty = leaks.filter((r) => r.n > 0);
+  dirty.length === 0
+    ? ok("Zero referências cruzadas entre tenants (6 relações auditadas)")
+    : bad("VAZAMENTO ENTRE TENANTS", dirty.map((r) => `${r.rel}:${r.n}`).join(" · "));
+} catch (e) { bad("Integridade multi-tenant (query)", String(e.message).slice(0, 120)); }
+
+try {
+  if (org) {
+    const incons = await prisma.$queryRawUnsafe(`
+      SELECT 'PAGO sem paidAt' AS k, count(*)::int AS n FROM "RentPayment" WHERE "organizationId"='${org.id}' AND status='PAGO' AND "paidAt" IS NULL
+      UNION ALL SELECT 'repasse sem valor', count(*)::int FROM "RentPayment" WHERE "organizationId"='${org.id}' AND "repasseAt" IS NOT NULL AND "repasseValue" IS NULL`);
+    const dirty = incons.filter((r) => r.n > 0);
+    dirty.length === 0 ? ok("Locação: consistência de pagamentos/repasses")
+      : bad("Locação: inconsistências", dirty.map((r) => `${r.k}:${r.n}`).join(" · "));
+  }
+} catch (e) { bad("Consistência locação (query)", String(e.message).slice(0, 120)); }
+
+sect("RETRATO DOS DADOS");
+try {
+  if (org) {
+    const w = { organizationId: org.id };
+    const [props, leads, contacts, agents, users, contracts, rentals, docs, fin] = await Promise.all([
+      prisma.property.count({ where: w }), prisma.lead.count({ where: w }),
+      prisma.contact.count({ where: w }), prisma.agent.count({ where: { ...w, isActive: true } }),
+      prisma.user.count({ where: w }).catch(() => -1), prisma.contract.count({ where: w }),
+      prisma.rentalContract.count({ where: w }), prisma.document.count({ where: w }),
+      prisma.financeEntry.count({ where: w }),
+    ]);
+    info("Volumes do tenant", `${props} imóveis · ${leads} leads · ${contacts} contatos · ${agents} corretores ativos · ${users >= 0 ? users + " usuários · " : ""}${contracts} contratos venda · ${rentals} locações · ${docs} docs · ${fin} lançamentos`);
+  }
+} catch (e) { info("Volumes (query)", String(e.message).slice(0, 100)); }
 
 /* ================= RELATÓRIO ================= */
 await prisma.$disconnect();
 const pad = (s, n) => String(s).padEnd(n);
 console.log("┌──────┬" + "─".repeat(58) + "┐");
 for (const [st, name, detail] of results) {
+  if (st === "SECT") { console.log(`├──── ${name} ${"─".repeat(Math.max(2, 50 - name.length))}┤`); continue; }
   const icon = st === "PASS" ? "🟢" : st === "FAIL" ? "🔴" : st === "SKIP" ? "⚪" : "🔵";
   console.log(`${icon} ${pad(st, 4)} │ ${name}${detail ? ` — ${detail}` : ""}`);
 }
@@ -224,6 +422,10 @@ const fails = results.filter((r) => r[0] === "FAIL").length;
 const passes = results.filter((r) => r[0] === "PASS").length;
 console.log("└──────┴" + "─".repeat(58) + "┘");
 console.log(`\n${passes} PASS · ${fails} FAIL · ${results.filter((r) => r[0] === "SKIP").length} SKIP`);
-console.log("\n⚠ O que o script NÃO cobre (manual, 3 min): fluxo de rescisão com banner de multa;");
-console.log("  botão 'Marcar COAF comunicado' apagando o alerta; pills visuais no painel (exigem login).");
+console.log("\n⚠ Roteiro MANUAL (exige login, ~5 min):");
+console.log("  1. /painel/modelos → conferir os 2 modelos jurídicos;");
+console.log("  2. Contrato de locação → 📄 Gerar contrato → 🖨 (o troféu!);");
+console.log("  3. Ficha de imóvel ≤ 500k → simulador: select Banco, FGTS, selo MCMV, custos de cartório;");
+console.log("  4. Rescindir um contrato → banner de multa + lançamento Previsto;");
+console.log("  5. Botão 'Marcar COAF comunicado' apagando o alerta do dashboard.");
 process.exit(fails > 0 ? 1 : 0);
