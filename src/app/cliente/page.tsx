@@ -35,10 +35,12 @@ export default async function ClientePortal() {
     <>
       <h1>{name ? `Olá, ${name}!` : "Área do cliente"}</h1>
       <p style={{ color: "var(--stone)", marginBottom: "1.6rem" }}>
-        Acompanhe aqui, em tempo real, cada passo da sua negociação com a {org.name}.
+        {session?.role === "OWNER"
+          ? `Acompanhe o status dos seus imóveis em locação com a ${org.name}.`
+          : `Acompanhe aqui, em tempo real, cada passo da sua negociação com a ${org.name}.`}
       </p>
 
-      {data.journeys.length === 0 && (
+      {session?.role !== "OWNER" && data.journeys.length === 0 && (
         <section className="ficha-box">
           <h2>Nenhuma negociação em andamento</h2>
           <p style={{ color: "var(--stone)" }}>
@@ -193,6 +195,55 @@ export default async function ClientePortal() {
           </section>
         );
       })()}
+
+      {/* ---- Imóveis em locação (proprietário) ---- */}
+      {data.ownerRentals?.length > 0 && (
+        <section className="ficha-box" style={{ marginBottom: "1.4rem" }}>
+          <h2>Meus imóveis em locação</h2>
+          {data.ownerRentals.map((r: any, idx: number) => {
+            const PAY_COLOR: Record<string, string> = { PAGO: "#8fbb7d", ATRASADO: "#e57373", PREVISTO: "var(--stone)", CANCELADO: "var(--stone)" };
+            const PAY_LABEL: Record<string, string> = { PAGO: "Pago", ATRASADO: "Em atraso", PREVISTO: "Previsto", CANCELADO: "Cancelado" };
+            return (
+              <div key={r.id} style={idx > 0 ? { marginTop: "1.2rem", paddingTop: "1.2rem", borderTop: "1px solid var(--line)" } : undefined}>
+                <p style={{ marginBottom: ".3rem" }}><strong>{r.property?.title}</strong>{r.property?.neighborhood ? ` · ${r.property.neighborhood}` : ""}</p>
+                <p style={{ color: "var(--stone)", fontSize: ".88rem", marginBottom: ".6rem" }}>
+                  {RENTAL_TYPE[r.type] ?? r.type} · Locatário: {r.tenant?.name ?? "—"} · vence todo dia {r.dueDay}
+                </p>
+                <div className="kpi" style={{ border: "none", padding: 0, marginBottom: ".8rem" }}>
+                  <strong>{brl(Number(r.rentValue))}</strong><span>aluguel mensal · vigência até {fmtD(r.endDate)}</span>
+                </div>
+                {r.payments.length > 0 && (
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: ".88rem" }}>
+                    <thead>
+                      <tr style={{ color: "var(--stone)", textAlign: "left" }}>
+                        <th style={{ paddingBottom: ".4rem", fontWeight: 500 }}>Referência</th>
+                        <th style={{ paddingBottom: ".4rem", fontWeight: 500 }}>Aluguel</th>
+                        <th style={{ paddingBottom: ".4rem", fontWeight: 500 }}>Situação</th>
+                        <th style={{ paddingBottom: ".4rem", fontWeight: 500 }}>Repasse</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {r.payments.map((p: any) => (
+                        <tr key={p.referenceMonth} style={{ borderTop: "1px solid var(--line)" }}>
+                          <td style={{ padding: ".35rem 0" }}>{p.referenceMonth}</td>
+                          <td style={{ padding: ".35rem 0", whiteSpace: "nowrap" }}>{brl(Number(p.rentValue))}</td>
+                          <td style={{ padding: ".35rem 0", color: PAY_COLOR[p.status] ?? "var(--stone)" }}>{PAY_LABEL[p.status] ?? p.status}</td>
+                          <td style={{ padding: ".35rem 0", color: p.repasseAt ? "#8fbb7d" : "var(--stone)", fontSize: ".85rem" }}>
+                            {p.repasseAt ? `Transferido em ${fmtD(p.repasseAt)}` : p.status === "PAGO" ? "Aguardando repasse" : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            );
+          })}
+          <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".9rem" }}>
+            Dúvidas sobre repasses? Entre em contato com a imobiliária.
+          </p>
+        </section>
+      )}
 
       {/* ---- Favoritos ---- */}
       {data.favorites.length > 0 && (

@@ -10,9 +10,9 @@ export default async function ClienteLayout({ children }: { children: React.Reac
   const org = await getTenant();
   const session = getSession();
 
-  // Só clientes deste tenant entram aqui; time da imobiliária usa o /painel
+  // Clientes e proprietários deste tenant entram aqui; time da imobiliária usa o /painel
   if (!session || session.orgId !== org.id) redirect("/login");
-  if (session.role !== "CLIENT") redirect("/painel");
+  if (session.role !== "CLIENT" && session.role !== "OWNER") redirect("/painel");
 
   const [first, ...rest] = org.name.toUpperCase().split(" ");
   return (
