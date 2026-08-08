@@ -26,6 +26,9 @@ export default async function EditarCorretor({
       <div className="phead">
         <h1>{agent.name}</h1>
         <span className="pill">{agent._count.leads} leads · {agent._count.properties} imóveis</span>
+        {agent.creciValidUntil && new Date(agent.creciValidUntil) < new Date() && (
+          <span className="pill" style={{ background: "#a33", color: "#fff" }}>⚠ CRECI vencido</span>
+        )}
       </div>
 
       {searchParams.salvo && <p className="ok" style={{ marginBottom: "1rem" }}>✔ Corretor atualizado.</p>}
@@ -39,6 +42,18 @@ export default async function EditarCorretor({
           <div className="pgrid">
             <label className="span2">Nome*<input name="name" defaultValue={agent.name} required /></label>
             <label>CRECI<input name="creci" defaultValue={agent.creci ?? ""} placeholder="CRECI 12.345" /></label>
+            <label>UF CRECI
+              <select name="creciUf" defaultValue={agent.creciUf ?? ""}>
+                <option value="">—</option>
+                {["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"].map((uf: string) => (
+                  <option key={uf} value={uf}>{uf}</option>
+                ))}
+              </select>
+            </label>
+            <label>Validade CRECI
+              <input name="creciValidUntil" type="date"
+                defaultValue={agent.creciValidUntil ? new Date(agent.creciValidUntil).toISOString().slice(0, 10) : ""} />
+            </label>
             <label>Telefone / WhatsApp<input name="phone" defaultValue={agent.phone ?? ""} /></label>
             <label className="span2">E-mail<input name="email" type="email" defaultValue={agent.email ?? ""} /></label>
             <label className="span2">Foto (URL)<input name="photoUrl" defaultValue={agent.photoUrl ?? ""} placeholder="https://..." /></label>

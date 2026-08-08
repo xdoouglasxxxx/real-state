@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { getTenant } from "@/lib/tenant";
 import { notifyNewLead } from "@/lib/notify";
@@ -13,7 +14,7 @@ import { pickAgentRoundRobin } from "@/lib/assign";
 async function createLead(opts: {
   name: string; phone: string; message?: string;
   propertyId?: string | null; wantSimilar?: boolean; kind: "visit" | "sell";
-  redirectTo: string;
+  redirectTo: string; lgpdConsent?: boolean; lgpdIp?: string | null;
 }) {
   const org = await getTenant();
 
@@ -58,6 +59,8 @@ async function createLead(opts: {
           stage: "NEW",
           agentId: chosen?.id ?? null,
           interest: opts.message?.slice(0, 500),
+          lgpdConsentAt: opts.lgpdConsent ? new Date() : null,
+          lgpdIp: opts.lgpdIp ?? null,
         },
       });
       await prisma.activity.create({
@@ -93,10 +96,12 @@ export async function submitVisitInquiry(formData: FormData) {
   const phone = String(formData.get("phone") ?? "").trim().slice(0, 20);
   const message = String(formData.get("message") ?? "").trim().slice(0, 2000);
   const propertyId = String(formData.get("propertyId") ?? "");
+  const lgpdConsent = formData.get("lgpd") === "on";
   // M2: slug vem do FormData — sanitizar para [a-z0-9-] antes de usar em redirect.
   const slug = String(formData.get("slug") ?? "").replace(/[^a-z0-9-]/g, "").slice(0, 80);
-  if (!name || !phone) redirect(`/imovel/${slug}?erro=1`);
-  await createLead({ name, phone, message, propertyId, wantSimilar, kind: "visit", redirectTo: `/imovel/${slug}?enviado=1` });
+  const ip = headers().get("x-forwarded-for")?.split(",")[0]?.trim() ?? headers().get("x-real-ip") ?? null;
+  if (!name || !phone || !lgpdConsent) redirect(`/imovel/${slug}?erro=1`);
+  await createLead({ name, phone, message, propertyId, wantSimilar, kind: "visit", redirectTo: `/imovel/${slug}?enviado=1`, lgpdConsent, lgpdIp: ip });
 }
 
 export async function submitSellInquiry(formData: FormData) {
@@ -104,6 +109,8 @@ export async function submitSellInquiry(formData: FormData) {
   const phone = String(formData.get("phone") ?? "").trim().slice(0, 20);
   const address = String(formData.get("address") ?? "").trim().slice(0, 300);
   const type = String(formData.get("type") ?? "").slice(0, 30);
-  if (!name || !phone || !address) redirect("/vender?erro=1");
-  await createLead({ name, phone, message: `Quer vender: ${address} (${type})`, kind: "sell", redirectTo: "/vender?enviado=1" });
+  const lgpdConsent = formData.get("lgpd") === "on";
+  const ip = headers().get("x-forwarded-for")?.split(",")[0]?.trim() ?? headers().get("x-real-ip") ?? null;
+  if (!name || !phone || !address || !lgpdConsent) redirect("/vender?erro=1");
+  await createLead({ name, phone, message: `Quer vender: ${address} (${type})`, kind: "sell", redirectTo: "/vender?enviado=1", lgpdConsent, lgpdIp: ip });
 }

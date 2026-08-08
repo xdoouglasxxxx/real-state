@@ -48,7 +48,11 @@ export default function Vender({ searchParams }: { searchParams: { enviado?: str
             <option value="LAND">Terreno</option>
             <option value="COMMERCIAL">Comercial</option>
           </select>
-          {searchParams.erro && <p style={{ color: "#d88" }}>Preencha todos os campos.</p>}
+          <label style={{ display: "flex", alignItems: "center", gap: ".6rem", fontSize: ".85rem", color: "var(--stone)" }}>
+            <input type="checkbox" name="lgpd" required style={{ width: "auto", flexShrink: 0 }} />
+            Li e aceito a{" "}<a href="/privacidade" style={{ color: "var(--brass)" }}>Política de Privacidade</a>
+          </label>
+          {searchParams.erro && <p style={{ color: "#d88" }}>Preencha todos os campos e aceite a Política de Privacidade.</p>}
           <button className="btn-solid" type="submit">Solicitar avaliação gratuita</button>
         </form>
       )}

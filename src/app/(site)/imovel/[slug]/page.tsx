@@ -127,7 +127,11 @@ export default async function PropertyPage({ params, searchParams }: Props) {
                       <input name="name" placeholder="Seu nome" required maxLength={120} />
                       <input name="phone" placeholder="Telefone / WhatsApp" required maxLength={20} />
                       <textarea name="message" placeholder="Mensagem (opcional)" rows={3} maxLength={2000} />
-                      {searchParams.erro && <p style={{ color: "#d88" }}>Preencha nome e telefone.</p>}
+                      <label style={{ display: "flex", alignItems: "center", gap: ".6rem", fontSize: ".85rem", color: "var(--stone)", marginTop: ".25rem" }}>
+                        <input type="checkbox" name="lgpd" required style={{ width: "auto", flexShrink: 0 }} />
+                        Li e aceito a{" "}<a href="/privacidade" style={{ color: "var(--brass)" }}>Política de Privacidade</a>
+                      </label>
+                      {searchParams.erro && <p style={{ color: "#d88" }}>Preencha todos os campos e aceite a Política de Privacidade.</p>}
                       <button className="btn-solid" type="submit">
                         {negotiated ? "Quero um imóvel como este" : "Enviar interesse"}
                       </button>

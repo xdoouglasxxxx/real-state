@@ -16,12 +16,16 @@ export async function createAgent(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) redirect("/painel/corretores?erro=1");
 
+  const creciUfRaw = String(formData.get("creciUf") ?? "").trim();
+  const creciValidUntilRaw = String(formData.get("creciValidUntil") ?? "").trim();
   try {
     await prisma.agent.create({
       data: {
         organizationId: org.id,
         name,
         creci: String(formData.get("creci") ?? "").trim() || null,
+        creciUf: creciUfRaw || null,
+        creciValidUntil: creciValidUntilRaw ? new Date(creciValidUntilRaw) : null,
         phone: String(formData.get("phone") ?? "").trim() || null,
         email: String(formData.get("email") ?? "").trim() || null,
         photoUrl: String(formData.get("photoUrl") ?? "").trim() || null,
@@ -61,6 +65,8 @@ export async function updateAgent(formData: FormData) {
   // Comissão padrão em % (0 a 100), aceita vírgula
   const pctRaw = String(formData.get("commissionPct") ?? "").replace(",", ".").trim();
   const pct = pctRaw === "" ? null : Math.min(100, Math.max(0, Number(pctRaw)));
+  const creciUfRaw = String(formData.get("creciUf") ?? "").trim();
+  const creciValidUntilRaw = String(formData.get("creciValidUntil") ?? "").trim();
 
   try {
     // Blindagem: só edita corretor DESTE tenant
@@ -71,6 +77,8 @@ export async function updateAgent(formData: FormData) {
         data: {
           name,
           creci: String(formData.get("creci") ?? "").trim() || null,
+          creciUf: creciUfRaw || null,
+          creciValidUntil: creciValidUntilRaw ? new Date(creciValidUntilRaw) : null,
           phone: String(formData.get("phone") ?? "").trim() || null,
           email: String(formData.get("email") ?? "").trim() || null,
           photoUrl: String(formData.get("photoUrl") ?? "").trim() || null,

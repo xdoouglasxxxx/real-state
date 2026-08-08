@@ -474,6 +474,15 @@ export async function getDashboardIntel(orgId: string, opts: { finance?: boolean
       } catch (e) { console.error("intel finance:", e); }
     }
 
+    // CRECI vencido (compliance Onda 4.5)
+    try {
+      const creciExpired = await prisma.agent.count({
+        where: { organizationId: orgId, isActive: true, creciValidUntil: { lt: now } },
+      });
+      if (creciExpired > 0)
+        alerts.push({ icon: "⚠️", text: `${creciExpired} corretor${creciExpired > 1 ? "es" : ""} com CRECI vencido — regularize antes da próxima transação`, href: "/painel/corretores" });
+    } catch (e) { console.error("intel creci:", e); }
+
     const sources = leads90d
       .map((r) => ({
         source: String(r.source), count: r._count,

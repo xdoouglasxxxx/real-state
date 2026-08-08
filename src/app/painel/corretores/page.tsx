@@ -28,6 +28,15 @@ export default async function Corretores({ searchParams }: { searchParams: { sal
           <div className="pgrid">
             <label className="span2">Nome*<input name="name" required /></label>
             <label>CRECI<input name="creci" placeholder="CRECI 12.345" /></label>
+            <label>UF CRECI
+              <select name="creciUf">
+                <option value="">—</option>
+                {["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"].map(uf => (
+                  <option key={uf} value={uf}>{uf}</option>
+                ))}
+              </select>
+            </label>
+            <label>Validade CRECI<input name="creciValidUntil" type="date" /></label>
             <label>Telefone / WhatsApp<input name="phone" /></label>
             <label className="span2">E-mail<input name="email" type="email" /></label>
             <label className="span2">Foto (URL)<input name="photoUrl" placeholder="https://..." /></label>
@@ -43,13 +52,20 @@ export default async function Corretores({ searchParams }: { searchParams: { sal
       {agents.length > 0 && (
         <table className="table">
           <thead>
-            <tr><th>Nome</th><th>CRECI</th><th>Telefone</th><th>Leads</th><th>Imóveis</th><th>Status</th><th></th></tr>
+            <tr><th>Nome</th><th>CRECI</th><th>Validade</th><th>Telefone</th><th>Leads</th><th>Imóveis</th><th>Status</th><th></th></tr>
           </thead>
           <tbody>
             {agents.map((a) => (
               <tr key={a.id} style={{ opacity: a.isActive ? 1 : 0.45 }}>
                 <td><Link href={`/painel/corretores/${a.id}`} style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>{a.name}</Link></td>
-                <td>{a.creci ?? "—"}</td>
+                <td>{a.creci ? `${a.creci}${a.creciUf ? ` (${a.creciUf})` : ""}` : "—"}</td>
+                <td>
+                  {a.creciValidUntil
+                    ? new Date(a.creciValidUntil) < new Date()
+                      ? <span className="pill" style={{ background: "#a33", color: "#fff" }}>Vencido {new Date(a.creciValidUntil).toLocaleDateString("pt-BR")}</span>
+                      : new Date(a.creciValidUntil).toLocaleDateString("pt-BR")
+                    : "—"}
+                </td>
                 <td>{a.phone ?? "—"}</td>
                 <td>{a._count.leads}</td>
                 <td>{a._count.properties}</td>
