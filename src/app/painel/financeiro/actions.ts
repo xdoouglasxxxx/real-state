@@ -77,14 +77,12 @@ export async function toggleFinancePaid(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const back = `/painel/financeiro?mes=${String(formData.get("mes") ?? "")}`;
   try {
-    // Blindagem: só lançamentos DESTE tenant
-    const entry = await prisma.financeEntry.findFirst({ where: { id, organizationId: ctx.org.id } });
-    if (entry) {
-      await prisma.financeEntry.update({
-        where: { id: entry.id },
-        data: { paidAt: entry.paidAt ? null : new Date() },
-      });
-    }
+    // Atômico: toggle em única passagem — sem TOCTOU, tenant verificado no WHERE
+    await prisma.$executeRaw`
+      UPDATE "FinanceEntry"
+      SET "paidAt" = CASE WHEN "paidAt" IS NULL THEN NOW() ELSE NULL END
+      WHERE id = ${id} AND "organizationId" = ${ctx.org.id}
+    `;
   } catch (e) { console.error("toggleFinancePaid:", e); }
   revalidatePath("/painel/financeiro");
   redirect(back);
