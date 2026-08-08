@@ -53,7 +53,7 @@ export default async function ContratoLocacao({
         <section className="ficha-box">
           <h2>💰 Números do contrato</h2>
           <div className="kpi" style={{ border: "none", padding: 0, marginBottom: ".6rem" }}>
-            <strong>{brl(c.rentValue)}</strong><span>aluguel mensal{c.guaranteeType === "PROPRIA" ? ` (+${Number(c.guaranteeFeePct)}% garantia = ${brl(Number(c.rentValue) * (1 + Number(c.guaranteeFeePct) / 100))} cobrados)` : ""}</span>
+            <strong>{brl(Number(c.rentValue))}</strong><span>aluguel mensal{c.guaranteeType === "PROPRIA" ? ` (+${Number(c.guaranteeFeePct)}% garantia = ${brl(Number(c.rentValue) * (1 + Number(c.guaranteeFeePct) / 100))} cobrados)` : ""}</span>
           </div>
           <div className="kpi" style={{ border: "none", padding: 0, marginBottom: ".6rem" }}>
             <strong style={{ color: "var(--brass)" }}>{brl(monthlyFee)}</strong><span>receita mensal da imobiliária ({Number(c.adminFeePct)}%{c.guaranteeType === "PROPRIA" ? ` + ${Number(c.guaranteeFeePct)}%` : ""})</span>

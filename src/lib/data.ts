@@ -671,7 +671,7 @@ export async function getFinance(orgId: string, year: number, month: number, fil
     kpis: { inPaid: 0, outPaid: 0, result: 0, toReceive: 0, toPay: 0, overdue: 0 },
     flow: [] as { label: string; inn: number; out: number }[],
     forecast: [] as { label: string; inn: number; out: number }[],
-    dre: [] as { category: string; direction: string; total: number }[],
+    dre: [] as { category: string; direction: string; total: number; prev: number }[],
     drePrevResult: 0,
     entries: [] as any[],
     commissions: [] as any[],
