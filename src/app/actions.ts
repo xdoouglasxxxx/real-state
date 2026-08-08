@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getTenant } from "@/lib/tenant";
 import { notifyNewLead } from "@/lib/notify";
 import { pickAgentRoundRobin } from "@/lib/assign";
+import { calcInitialScore } from "@/lib/score";
 
 /**
  * Cria (ou reaproveita) o Contact e abre um Lead com a Activity inicial.
@@ -50,6 +51,7 @@ async function createLead(opts: {
 
       // L2: passar propertyId para priorizar corretor do imóvel; fallback no rodízio.
       const chosen = await pickAgentRoundRobin(org.id, opts.propertyId).catch(() => null);
+      const score = calcInitialScore({ propertyId: opts.propertyId, source: "SITE", message: opts.message });
       const lead = await prisma.lead.create({
         data: {
           organizationId: org.id,
@@ -59,6 +61,7 @@ async function createLead(opts: {
           stage: "NEW",
           agentId: chosen?.id ?? null,
           interest: opts.message?.slice(0, 500),
+          score,
           lgpdConsentAt: opts.lgpdConsent ? new Date() : null,
           lgpdIp: opts.lgpdIp ?? null,
         },

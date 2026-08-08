@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requirePanel, requireManagerUp, type PanelContext } from "@/lib/perm";
+import { calcInitialScore } from "@/lib/score";
 
 /** Autor das ações — vai na timeline (auditoria leve: quem fez o quê). */
 const author = (ctx: PanelContext) => (ctx.master ? "Master (plataforma)" : ctx.email);
@@ -105,6 +106,12 @@ export async function createManualLead(formData: FormData) {
     const contact = existing ?? (await prisma.contact.create({
       data: { organizationId: ctx.org.id, name, phone, kind: contactKind },
     }));
+    const score = calcInitialScore({
+      propertyId: propertyOk?.id ?? null,
+      source: String(formData.get("source") ?? "OUTRO"),
+      email: contact.email,
+      message: String(formData.get("interest") ?? ""),
+    });
     const lead = await prisma.lead.create({
       data: {
         organizationId: ctx.org.id,
@@ -114,6 +121,7 @@ export async function createManualLead(formData: FormData) {
         source: String(formData.get("source") ?? "OUTRO") as any,
         stage: "NEW",
         interest: String(formData.get("interest") ?? "").trim() || null,
+        score,
       },
     });
     await prisma.activity.create({
