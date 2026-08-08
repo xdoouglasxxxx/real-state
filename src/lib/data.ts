@@ -529,7 +529,7 @@ export const CLIENT_STAGE: Record<string, { label: string; pct: number }> = {
 /** Tudo que o cliente pode ver, amarrado pelo E-MAIL do contato neste tenant.
  *  SEGURANÇA: nada de anotações internas, autoria, comissões ou dados de outros. */
 export async function getClientPortal(orgId: string, email: string) {
-  const empty = { contacts: [] as any[], journeys: [] as any[], visits: [] as any[], favorites: [] as any[] };
+  const empty = { contacts: [] as any[], journeys: [] as any[], visits: [] as any[], favorites: [] as any[], rental: null as any, ownerRentals: [] as any[] };
   if (!hasDb() || !email) return empty;
   try {
     const contacts = await prisma.contact.findMany({
@@ -584,7 +584,37 @@ export async function getClientPortal(orgId: string, email: string) {
       }),
     ]);
 
-    return { contacts, journeys: leads, visits, favorites };
+    // Contrato de locação ATIVO do inquilino — nunca adminFee, repasse ou dados do proprietário
+    const rental = await prisma.rentalContract.findFirst({
+      where: { organizationId: orgId, status: "ATIVO", tenant: { email: { equals: email, mode: "insensitive" } } },
+      select: {
+        id: true, type: true, rentValue: true, dueDay: true, guaranteeType: true,
+        startDate: true, endDate: true,
+        property: { select: { title: true, neighborhood: true } },
+        payments: {
+          orderBy: { dueDate: "asc" }, take: 6,
+          select: { referenceMonth: true, dueDate: true, totalBilled: true, status: true },
+        },
+      },
+    });
+
+    // Contratos ATIVOS onde o usuário é o proprietário do imóvel — nunca adminFee nem comissões
+    const ownerRentals = await prisma.rentalContract.findMany({
+      where: { organizationId: orgId, status: "ATIVO", owner: { email: { equals: email, mode: "insensitive" } } },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true, type: true, rentValue: true, dueDay: true,
+        startDate: true, endDate: true,
+        property: { select: { title: true, neighborhood: true } },
+        tenant: { select: { name: true } },
+        payments: {
+          orderBy: { dueDate: "desc" }, take: 6,
+          select: { referenceMonth: true, dueDate: true, rentValue: true, repasseAt: true, status: true },
+        },
+      },
+    });
+
+    return { contacts, journeys: leads, visits, favorites, rental: rental ?? null, ownerRentals };
   } catch (e) {
     console.error("getClientPortal:", e);
     return empty;
@@ -671,7 +701,7 @@ export async function getFinance(orgId: string, year: number, month: number, fil
     kpis: { inPaid: 0, outPaid: 0, result: 0, toReceive: 0, toPay: 0, overdue: 0 },
     flow: [] as { label: string; inn: number; out: number }[],
     forecast: [] as { label: string; inn: number; out: number }[],
-    dre: [] as { category: string; direction: string; total: number }[],
+    dre: [] as { category: string; direction: string; total: number; prev: number }[],
     drePrevResult: 0,
     entries: [] as any[],
     commissions: [] as any[],
