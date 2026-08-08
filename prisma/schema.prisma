@@ -55,6 +55,8 @@ model Organization {
   testimonials  Testimonial[]
   subscription  Subscription?
   documents      Document[]
+  rentalContracts RentalContract[]
+  rentPayments    RentPayment[]
 }
 
 // Domínio próprio por tenant (ex.: www.maisonestate.com.br)
@@ -152,6 +154,7 @@ model Agent {
 
   @@index([organizationId])
   financeEntries FinanceEntry[]
+  rentalContracts RentalContract[]
 }
 
 // Cliente, proprietário ou ambos — pessoa de contato
@@ -175,6 +178,8 @@ model Contact {
 
   @@index([organizationId])
   @@index([organizationId, phone])
+  rentalsAsOwner  RentalContract[] @relation("RentalOwner")
+  rentalsAsTenant RentalContract[] @relation("RentalTenant")
 }
 
 enum ContactKind {
@@ -245,6 +250,7 @@ model Property {
   @@index([organizationId, city, neighborhood])
   @@index([organizationId, price])
   financeEntries FinanceEntry[]
+  rentalContracts RentalContract[]
 }
 
 enum PropertyType {
@@ -562,6 +568,8 @@ enum FlowDir {
 
 enum FinCategory {
   COMISSAO_RECEBIDA
+  ALUGUEL_RECEBIDO
+  REPASSE_LOCACAO
   COMISSAO_PAGA
   IMPOSTO
   PRO_LABORE
@@ -618,4 +626,90 @@ model Testimonial {
   createdAt      DateTime     @default(now())
 
   @@index([organizationId])
+}
+
+// ---------------------------------------------------------------------
+// LOCAÇÃO (Onda 4.4 — MVP)
+// ---------------------------------------------------------------------
+
+enum RentalType {
+  LONG_STAY
+  FLEX
+  CORPORATE
+  TEMPORADA
+}
+
+enum RentalStatus {
+  ATIVO
+  ENCERRADO
+  RESCINDIDO
+}
+
+enum GuaranteeType {
+  PROPRIA
+  SEGURO_FIANCA
+  CAUCAO
+  FIADOR
+}
+
+enum RentPayStatus {
+  PREVISTO
+  PAGO
+  ATRASADO
+  CANCELADO
+}
+
+model RentalContract {
+  id              String        @id @default(cuid())
+  organizationId  String
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId      String
+  property        Property      @relation(fields: [propertyId], references: [id])
+  ownerId         String
+  owner           Contact       @relation("RentalOwner", fields: [ownerId], references: [id])
+  tenantId        String
+  tenant          Contact       @relation("RentalTenant", fields: [tenantId], references: [id])
+  agentId         String?
+  agent           Agent?        @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  type            RentalType    @default(LONG_STAY)
+  status          RentalStatus  @default(ATIVO)
+  rentValue       Decimal       @db.Decimal(12, 2)
+  adminFeePct     Decimal       @default(10) @db.Decimal(5, 2)
+  setupFee        Decimal       @default(0) @db.Decimal(12, 2)
+  guaranteeType   GuaranteeType @default(FIADOR)
+  guaranteeFeePct Decimal       @default(0) @db.Decimal(5, 2)
+  startDate       DateTime
+  endDate         DateTime
+  dueDay          Int           @default(5)
+  reajusteIndex   String        @default("IGP-M")
+  notes           String?
+  createdBy       String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  payments        RentPayment[]
+
+  @@index([organizationId, status])
+  @@index([propertyId])
+}
+
+model RentPayment {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contractId     String
+  contract       RentalContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  referenceMonth String
+  dueDate        DateTime
+  rentValue      Decimal        @db.Decimal(12, 2)
+  adminFee       Decimal        @default(0) @db.Decimal(12, 2)
+  guaranteeFee   Decimal        @default(0) @db.Decimal(12, 2)
+  totalBilled    Decimal        @db.Decimal(12, 2)
+  status         RentPayStatus  @default(PREVISTO)
+  paidAt         DateTime?
+  repasseAt      DateTime?
+  repasseValue   Decimal?       @db.Decimal(12, 2)
+  financeEntryId String?
+
+  @@index([organizationId, status, dueDate])
+  @@index([contractId])
 }

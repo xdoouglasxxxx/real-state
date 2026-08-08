@@ -657,7 +657,8 @@ export async function getSidebarBadges(orgId: string, agentId?: string | null) {
 /* ---------- ONDA 4.1 — FINANCEIRO ---------- */
 
 export const FIN_CATEGORY: Record<string, string> = {
-  COMISSAO_RECEBIDA: "Comissão recebida", COMISSAO_PAGA: "Repasse a corretor",
+  COMISSAO_RECEBIDA: "Comissão recebida", ALUGUEL_RECEBIDO: "Aluguel recebido",
+  REPASSE_LOCACAO: "Repasse a proprietário", COMISSAO_PAGA: "Repasse a corretor",
   IMPOSTO: "Impostos e taxas", PRO_LABORE: "Pró-labore", DESPESA_FIXA: "Despesa fixa",
   DESPESA_VARIAVEL: "Despesa variável", MARKETING: "Marketing", RECEITA_OUTRA: "Outras receitas",
 };
@@ -832,5 +833,108 @@ export async function getFinance(orgId: string, year: number, month: number, fil
   } catch (e) {
     console.error("getFinance:", e);
     return empty;
+  }
+}
+
+/* ---------- ONDA 4.4 — LOCAÇÃO ---------- */
+
+export const RENTAL_TYPE: Record<string, string> = {
+  LONG_STAY: "Longa duração", FLEX: "Flex (mobiliado)", CORPORATE: "Corporativo", TEMPORADA: "Temporada",
+};
+export const GUARANTEE_LABEL: Record<string, string> = {
+  PROPRIA: "Garantia própria", SEGURO_FIANCA: "Seguro-fiança", CAUCAO: "Caução", FIADOR: "Fiador",
+};
+
+/** Marca em ATRASADO tudo que venceu sem pagamento (regra, sem cron). */
+async function refreshOverdueRents(orgId: string) {
+  try {
+    await prisma.rentPayment.updateMany({
+      where: { organizationId: orgId, status: "PREVISTO", dueDate: { lt: new Date() } },
+      data: { status: "ATRASADO" },
+    });
+  } catch (e) { console.error("refreshOverdueRents:", e); }
+}
+
+/** Carteira de locação: KPIs + contratos. */
+export async function getRentals(orgId: string) {
+  const empty = {
+    kpis: { portfolio: 0, active: 0, monthlyFees: 0, overdueCount: 0, overdueSum: 0, toTransferCount: 0, toTransferSum: 0 },
+    contracts: [] as any[],
+    suggestions: [] as any[],
+  };
+  if (!hasDb()) return empty;
+  try {
+    await refreshOverdueRents(orgId);
+    const d100 = new Date(Date.now() - 100 * 86400000);
+    const [contracts, overdue, toTransfer, stale] = await Promise.all([
+      prisma.rentalContract.findMany({
+        where: { organizationId: orgId },
+        orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+        take: 100,
+        include: {
+          property: { select: { id: true, title: true } },
+          tenant: { select: { name: true, phone: true } },
+          agent: { select: { id: true, name: true } },
+          payments: {
+            where: { status: { in: ["PREVISTO", "ATRASADO"] } },
+            orderBy: { dueDate: "asc" }, take: 1,
+            select: { dueDate: true, status: true, totalBilled: true },
+          },
+        },
+      }),
+      prisma.rentPayment.aggregate({
+        where: { organizationId: orgId, status: "ATRASADO" }, _count: true, _sum: { totalBilled: true },
+      }),
+      prisma.rentPayment.aggregate({
+        where: { organizationId: orgId, status: "PAGO", repasseAt: null }, _count: true, _sum: { rentValue: true },
+      }),
+      // FLUXO 1: imóveis à venda parados 100+ dias = candidatos a locação (regra 0,45%)
+      prisma.property.findMany({
+        where: {
+          organizationId: orgId, status: "FOR_SALE", createdAt: { lt: d100 },
+          visits: { none: { scheduledAt: { gte: d100 } } },
+          rentalContracts: { none: { status: "ATIVO" } },
+        },
+        take: 5, orderBy: { price: "desc" },
+        select: { id: true, title: true, price: true, neighborhood: true },
+      }),
+    ]);
+    const active = contracts.filter((c) => c.status === "ATIVO");
+    return {
+      kpis: {
+        portfolio: active.reduce((s, c) => s + Number(c.rentValue), 0),
+        active: active.length,
+        monthlyFees: active.reduce((s, c) => s + Number(c.rentValue) * Number(c.adminFeePct) / 100
+          + (c.guaranteeType === "PROPRIA" ? Number(c.rentValue) * Number(c.guaranteeFeePct) / 100 : 0), 0),
+        overdueCount: overdue._count, overdueSum: Number(overdue._sum.totalBilled ?? 0),
+        toTransferCount: toTransfer._count, toTransferSum: Number(toTransfer._sum.rentValue ?? 0),
+      },
+      contracts,
+      suggestions: stale.map((p) => ({ ...p, suggestedRent: Math.round(Number(p.price) * 0.0045 / 50) * 50 })),
+    };
+  } catch (e) {
+    console.error("getRentals:", e);
+    return empty;
+  }
+}
+
+/** Ficha do contrato: dados + régua completa de pagamentos. */
+export async function getRentalDetail(orgId: string, id: string) {
+  if (!hasDb()) return null;
+  try {
+    await refreshOverdueRents(orgId);
+    return await prisma.rentalContract.findFirst({
+      where: { id, organizationId: orgId },
+      include: {
+        property: { select: { id: true, title: true, neighborhood: true } },
+        owner: { select: { name: true, phone: true } },
+        tenant: { select: { name: true, phone: true, email: true } },
+        agent: { select: { name: true } },
+        payments: { orderBy: { dueDate: "asc" } },
+      },
+    });
+  } catch (e) {
+    console.error("getRentalDetail:", e);
+    return null;
   }
 }
