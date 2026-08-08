@@ -33,7 +33,6 @@ model Organization {
   email     String?
   address   String?
   city      String?
-  financingRates Json? // taxas por banco: [{banco:string, taxa:number}] — migração 22
   // Self-service: credenciais do administrador do tenant
   adminEmail    String?
   panelPassHash String?
@@ -59,6 +58,7 @@ model Organization {
   rentalContracts RentalContract[]
   rentPayments    RentPayment[]
   contractTemplates ContractTemplate[]
+  financingRates Json? // taxas por banco p/ simulador (Onda 4.3): [{banco, taxa}]
 }
 
 // Domínio próprio por tenant (ex.: www.maisonestate.com.br)
