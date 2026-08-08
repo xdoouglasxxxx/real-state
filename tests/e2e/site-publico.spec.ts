@@ -10,8 +10,9 @@ test.describe("Site público", () => {
   test("home carrega com vitrine", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveTitle(/./); // tem título
-    // pelo menos um card de imóvel com preço em R$
-    await expect(page.locator("text=/R\\$\\s?[\\d.,]+/").first()).toBeVisible({ timeout: 15000 });
+    // pelo menos um card de imóvel clicável na vitrine
+    // (não usar texto "R$": o select de filtro tem options ocultas com R$ que enganam o .first())
+    await expect(page.locator('a[href^="/imovel/"]').first()).toBeVisible({ timeout: 15000 });
   });
 
   test("visitante agenda visita em um imóvel (com consentimento LGPD)", async ({ page }) => {
