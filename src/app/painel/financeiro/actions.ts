@@ -18,7 +18,7 @@ export async function createFinanceEntry(formData: FormData) {
 
   const direction = String(formData.get("direction") ?? "");
   const category = String(formData.get("category") ?? "");
-  const description = String(formData.get("description") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim().slice(0, 300);
   const amount = Number(String(formData.get("amount") ?? "").replace(/[^\d,]/g, "").replace(",", "."));
   const dueDate = String(formData.get("dueDate") ?? "");
   const alreadyPaid = formData.get("alreadyPaid") === "on";

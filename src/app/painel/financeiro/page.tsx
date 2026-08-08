@@ -253,7 +253,7 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
                 {Object.entries(FIN_CATEGORY).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </label>
-            <label className="span2">Descrição*<input name="description" required placeholder="Ex.: Anúncio ZAP — agosto" /></label>
+            <label className="span2">Descrição*<input name="description" required placeholder="Ex.: Anúncio ZAP — agosto" maxLength={300} /></label>
             <label>Valor (R$)*<MoneyInput name="amount" required placeholder="R$ 2.500,00" /></label>
             <label>Vencimento*<input name="dueDate" type="date" required /></label>
             <label>Imóvel vinculado
