@@ -28,7 +28,12 @@ export async function saveProperty(formData: FormData) {
   if (!title || price === null) redirect(id ? `/painel/imoveis/${id}?erro=1` : "/painel/imoveis/novo?erro=1");
 
   const photos = formData.getAll("photos").map(String).filter(Boolean);
-  const tourUrl = String(formData.get("tourUrl") ?? "").trim();
+  // H3: descartar tourUrl que não seja https:// — impede armazenar javascript: ou http: no banco.
+  const rawTourUrl = String(formData.get("tourUrl") ?? "").trim();
+  const tourUrl = (() => {
+    if (!rawTourUrl) return "";
+    try { return new URL(rawTourUrl).protocol === "https:" ? rawTourUrl : ""; } catch { return ""; }
+  })();
 
   const data: any = {
     title,
@@ -81,12 +86,21 @@ export async function saveProperty(formData: FormData) {
     if (atLimit) redirect("/painel/assinatura?limite=imoveis");
   }
 
+  // C1: blindagem de tenant antes de qualquer escrita — mesmo padrão das actions de leads/financeiro.
+  if (id) {
+    let owned: { id: string } | null = null;
+    try {
+      owned = await prisma.property.findFirst({ where: { id, organizationId: org.id }, select: { id: true } });
+    } catch (e) { console.error("saveProperty(ownership):", e); }
+    if (!owned) redirect("/painel/imoveis?erro=3");
+  }
+
   let propertyId = id;
 
   try {
     if (id) {
       await prisma.property.update({ where: { id }, data });
-      // Regrava fotos e tour (simples e previsível)
+      // Regrava fotos e tour. O id já foi validado como deste tenant acima.
       await prisma.propertyMedia.deleteMany({ where: { propertyId: id, kind: { in: ["PHOTO", "VIRTUAL_TOUR"] } } });
     } else {
       // slug único por tenant
@@ -125,7 +139,8 @@ export async function saveProperty(formData: FormData) {
 
 /** Muda o status (pausar, marcar vendido, republicar, arquivar). */
 export async function setPropertyStatus(formData: FormData) {
-  const { org } = await requireManagerUp();
+  const ctx = await requireManagerUp();
+  const { org } = ctx;
   if (!process.env.DATABASE_URL || org.id === "demo") redirect("/painel/imoveis?demo=1");
 
   const id = String(formData.get("id") ?? "");
@@ -147,7 +162,7 @@ export async function setPropertyStatus(formData: FormData) {
       },
     });
     await prisma.propertyEvent.create({
-      data: { propertyId: id, type: "status_change", payload: { from: before?.status, to: status } },
+      data: { propertyId: id, type: "status_change", payload: { from: before?.status, to: status, by: ctx.master ? "Master (plataforma)" : ctx.email } },
     });
   } catch (e) {
     console.error("setPropertyStatus:", e);

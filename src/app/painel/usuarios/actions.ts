@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/perm";
 import { hashPassword } from "@/lib/auth";
 import { getPlan } from "@/lib/plans";
+import { isValidEmail } from "@/lib/validators";
 
 const rethrowRedirect = (e: unknown) => {
   if (e && typeof e === "object" && "digest" in e && String((e as any).digest).startsWith("NEXT_REDIRECT")) throw e;
@@ -23,7 +24,7 @@ export async function createUser(formData: FormData) {
   const role = String(formData.get("role") ?? "AGENT");
   const agentLink = String(formData.get("agentLink") ?? "auto"); // "auto" | id de Agent existente
 
-  if (!name || !email.includes("@")) redirect("/painel/usuarios?erro=campos");
+  if (!name || !isValidEmail(email)) redirect("/painel/usuarios?erro=campos");
   if (pass.length < 6) redirect("/painel/usuarios?erro=senha");
   if (!PANEL_ROLES.includes(role as any)) redirect("/painel/usuarios?erro=campos");
 

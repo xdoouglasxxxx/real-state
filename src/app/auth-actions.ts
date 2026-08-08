@@ -4,8 +4,9 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import {
   hashPassword, verifyPassword, createSession, destroySession,
-  setTenantPreview, getSession, type SessionRole,
+  setTenantPreview, getSession, timingSafeStringEqual, type SessionRole,
 } from "@/lib/auth";
+import { isValidEmail } from "@/lib/validators";
 
 /** redirect() lança exceção de controle; se cair num catch, precisa ser relançada. */
 const rethrowRedirect = (e: unknown) => {
@@ -23,13 +24,13 @@ const LOGIN_ROLES = ["ORG_ADMIN", "MANAGER", "AGENT", "CLIENT"] as const;
 export async function createTenant(formData: FormData) {
   if (!process.env.DATABASE_URL) redirect("/criar?erro=demo");
 
-  const name = String(formData.get("name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const pass = String(formData.get("password") ?? "");
+  const name = String(formData.get("name") ?? "").trim().slice(0, 120);
+  const email = String(formData.get("email") ?? "").trim().toLowerCase().slice(0, 160);
+  const pass = String(formData.get("password") ?? "").slice(0, 128);
   const wantedSlug = slugify(String(formData.get("slug") ?? "") || name);
   const plan = String(formData.get("plan") ?? "STARTER");
 
-  if (!name || !email.includes("@") || pass.length < 6) redirect("/criar?erro=campos");
+  if (!name || !isValidEmail(email) || pass.length < 6) redirect("/criar?erro=campos");
 
   try {
     // slug único
@@ -85,10 +86,12 @@ export async function login(formData: FormData) {
   let dest = "/painel";
   try {
     // ---- Acesso master da plataforma (entra em qualquer tenant) ----
+    // C2: comparação timing-safe — === vaza informação de tempo char a char.
+    const hasMasterCreds = Boolean(process.env.PAINEL_USER && process.env.PAINEL_PASS);
     const masterOk =
-      process.env.PAINEL_USER && process.env.PAINEL_PASS &&
-      email === String(process.env.PAINEL_USER).toLowerCase() &&
-      pass === process.env.PAINEL_PASS;
+      hasMasterCreds &&
+      timingSafeStringEqual(email, String(process.env.PAINEL_USER).toLowerCase()) &&
+      timingSafeStringEqual(pass, String(process.env.PAINEL_PASS));
 
     if (masterOk) {
       const org = slugRaw

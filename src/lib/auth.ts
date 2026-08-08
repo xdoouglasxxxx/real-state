@@ -1,10 +1,32 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 
+// H1: AUTH_SECRET obrigatória em produção; sem ela qualquer um pode forjar sessões.
+if (process.env.NODE_ENV === "production" && !process.env.AUTH_SECRET) {
+  throw new Error("AUTH_SECRET env var must be set in production");
+}
+if (process.env.NODE_ENV !== "production" && !process.env.AUTH_SECRET) {
+  console.warn("[auth] AUTH_SECRET não definida — usando fallback de dev. NUNCA use em produção.");
+}
 const SECRET = process.env.AUTH_SECRET ?? "dev-secret-change-me";
 const SESSION_COOKIE = "maison_session";
 const TENANT_COOKIE = "tenant_preview";
 const WEEK = 60 * 60 * 24 * 7;
+
+/* ---------- comparação timing-safe (C2) ---------- */
+/**
+ * Compara duas strings em tempo constante (padding de 256 bytes).
+ * Usa-se para credenciais master onde === vaza informação por tempo.
+ */
+export function timingSafeStringEqual(a: string, b: string): boolean {
+  const LEN = 256;
+  const aBuf = Buffer.alloc(LEN);
+  const bBuf = Buffer.alloc(LEN);
+  Buffer.from(a).copy(aBuf, 0, 0, Math.min(a.length, LEN));
+  Buffer.from(b).copy(bBuf, 0, 0, Math.min(b.length, LEN));
+  const sameContent = timingSafeEqual(aBuf, bBuf);
+  return a.length === b.length && sameContent;
+}
 
 /* ---------- senha (scrypt) ---------- */
 export function hashPassword(pass: string) {
@@ -62,7 +84,8 @@ export function destroySession() {
 
 /* ---------- tenant preview (antes do domínio próprio) ---------- */
 export function setTenantPreview(slug: string) {
-  cookies().set(TENANT_COOKIE, slug, { sameSite: "lax", maxAge: WEEK, path: "/" });
+  // H2: httpOnly impede leitura por JavaScript (XSS). Apenas código servidor usa getTenantPreview().
+  cookies().set(TENANT_COOKIE, slug, { httpOnly: true, sameSite: "lax", maxAge: WEEK, path: "/" });
 }
 export function getTenantPreview() {
   return cookies().get(TENANT_COOKIE)?.value ?? null;
