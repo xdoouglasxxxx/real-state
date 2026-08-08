@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/perm";
+import { requireManagerUp } from "@/lib/perm";
 import { getRentalDetail, RENTAL_TYPE, GUARANTEE_LABEL } from "@/lib/data";
 import { brl, brlCompact } from "@/lib/format";
 import { markRentPaid, transferRent, closeRentalContract } from "../actions";
@@ -18,14 +18,35 @@ const DOT: Record<string, { bg: string; title: string }> = {
 export default async function ContratoLocacao({
   params, searchParams,
 }: { params: { id: string }; searchParams: { ok?: string; pago?: string; repasse?: string; encerrado?: string } }) {
-  const ctx = await requireAdmin();
+  const ctx = await requireManagerUp();
   const c = await getRentalDetail(ctx.org.id, params.id);
   if (!c) notFound();
 
+  const now = new Date();
   const monthlyFee = Number(c.rentValue) * Number(c.adminFeePct) / 100
     + (c.guaranteeType === "PROPRIA" ? Number(c.rentValue) * Number(c.guaranteeFeePct) / 100 : 0);
   const paid = c.payments.filter((p: any) => p.status === "PAGO");
   const toTransfer = paid.filter((p: any) => !p.repasseAt);
+
+  const calcEncargos = (p: any) => {
+    if (p.status !== "ATRASADO") return 0;
+    const dias = Math.max(0, Math.floor((now.getTime() - new Date(p.dueDate).getTime()) / 86400000));
+    const base = Number(p.totalBilled);
+    return Math.round((base * 0.02 + base * 0.01 * dias / 30) * 100) / 100;
+  };
+
+  // Próxima data-base de reajuste (aniversários de 12 em 12 meses a partir de startDate)
+  const nextReajuste = (() => {
+    if (c.status !== "ATIVO") return null;
+    const start = new Date(c.startDate);
+    for (let i = 12; i <= 48; i += 12) {
+      const d = new Date(start.getFullYear(), start.getMonth() + i, start.getDate());
+      if (d > now) {
+        return Math.floor((d.getTime() - now.getTime()) / 86400000) <= 30 ? d : null;
+      }
+    }
+    return null;
+  })();
 
   return (
     <>
@@ -34,6 +55,12 @@ export default async function ContratoLocacao({
         <h1>{c.property?.title}</h1>
         <span className="pill">{c.status === "ATIVO" ? "Contrato ativo" : c.status === "ENCERRADO" ? "Encerrado" : "Rescindido"}</span>
       </div>
+
+      {nextReajuste && (
+        <p className="pill" style={{ marginBottom: "1rem", borderColor: "var(--brass)", color: "var(--brass)", display: "inline-block" }}>
+          Reajuste {c.reajusteIndex} em {fmtD(nextReajuste)}
+        </p>
+      )}
 
       {searchParams.ok && <p className="ok" style={{ marginBottom: "1rem" }}>✔ Contrato criado — régua de cobrança gerada até {fmtD(c.endDate)}.</p>}
       {searchParams.pago && <p className="ok" style={{ marginBottom: "1rem" }}>✔ Pagamento registrado — aluguel entrou no caixa; repasse liberado.</p>}
@@ -48,10 +75,12 @@ export default async function ContratoLocacao({
           {c.agent && <p style={{ marginBottom: ".3rem" }}><span style={{ color: "var(--stone)" }}>Corretor:</span> {c.agent.name}</p>}
           <p style={{ marginBottom: ".3rem" }}><span style={{ color: "var(--stone)" }}>Tipo:</span> {RENTAL_TYPE[c.type] ?? c.type} · <span style={{ color: "var(--stone)" }}>Garantia:</span> {GUARANTEE_LABEL[c.guaranteeType]}</p>
           <p style={{ marginBottom: ".3rem" }}><span style={{ color: "var(--stone)" }}>Vigência:</span> {fmtD(c.startDate)} → {fmtD(c.endDate)} · vence dia {c.dueDay} · reajuste {c.reajusteIndex}</p>
+          {c.notes && <p style={{ marginBottom: ".3rem", color: "var(--stone)", fontSize: ".88rem" }}>{c.notes}</p>}
+          <p style={{ marginTop: ".5rem", color: "var(--stone)", fontSize: ".78rem" }}>Criado por {c.createdBy ?? "sistema"} em {fmtD(c.createdAt)}</p>
         </section>
 
         <section className="ficha-box">
-          <h2>💰 Números do contrato</h2>
+          <h2>Números do contrato</h2>
           <div className="kpi" style={{ border: "none", padding: 0, marginBottom: ".6rem" }}>
             <strong>{brl(Number(c.rentValue))}</strong><span>aluguel mensal{c.guaranteeType === "PROPRIA" ? ` (+${Number(c.guaranteeFeePct)}% garantia = ${brl(Number(c.rentValue) * (1 + Number(c.guaranteeFeePct) / 100))} cobrados)` : ""}</span>
           </div>
@@ -70,10 +99,8 @@ export default async function ContratoLocacao({
               const d = DOT[p.status] ?? DOT.PREVISTO;
               return (
                 <span key={p.id} title={`${p.referenceMonth} · ${d.title}${p.repasseAt ? " · repassado" : ""}`}
-                      style={{
-                        width: 18, height: 18, borderRadius: 999, background: d.bg, display: "inline-block",
-                        border: p.repasseAt ? "2px solid var(--brass)" : "2px solid transparent",
-                      }} />
+                      style={{ width: 18, height: 18, borderRadius: 999, background: d.bg, display: "inline-block",
+                        border: p.repasseAt ? "2px solid var(--brass)" : "2px solid transparent" }} />
               );
             })}
           </p>
@@ -84,18 +111,21 @@ export default async function ContratoLocacao({
         </section>
       </div>
 
-      {/* ---- Tabela de parcelas ---- */}
       <h2 style={{ marginBottom: ".8rem" }}>Parcelas</h2>
       <table className="table">
         <thead><tr><th>Ref.</th><th>Vencimento</th><th>Cobrança</th><th>Status</th><th>Repasse</th><th></th></tr></thead>
         <tbody>
           {c.payments.map((p: any) => {
             const overdue = p.status === "ATRASADO";
+            const enc = calcEncargos(p);
             return (
               <tr key={p.id} style={{ opacity: p.status === "CANCELADO" ? 0.45 : 1 }}>
                 <td>{p.referenceMonth}</td>
                 <td style={overdue ? { color: "#e57373" } : undefined}>{fmtD(p.dueDate)}{overdue ? " ⚠" : ""}</td>
-                <td style={{ whiteSpace: "nowrap" }}>{brl(p.totalBilled)}</td>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  {brl(p.totalBilled)}
+                  {enc > 0 && <span style={{ color: "#e57373", fontSize: ".8rem" }}> +{brl(enc)}</span>}
+                </td>
                 <td>
                   <span className={"badge-status " + (p.status === "PAGO" ? "badge-pago" : overdue ? "badge-vencido" : "badge-previsto")}>
                     {p.status === "PAGO" ? "Pago" : overdue ? "Atrasado" : p.status === "CANCELADO" ? "Cancelado" : "Previsto"}
@@ -105,15 +135,17 @@ export default async function ContratoLocacao({
                   {p.repasseAt ? <span style={{ color: "var(--brass)" }}>✔ {brl(p.repasseValue)} · {fmtD(p.repasseAt)}</span>
                     : p.status === "PAGO" ? <span style={{ color: "var(--stone)" }}>pendente</span> : "—"}
                 </td>
-                <td>
+                <td style={{ whiteSpace: "nowrap" }}>
                   {["PREVISTO", "ATRASADO"].includes(p.status) && c.status === "ATIVO" && (
                     <form action={markRentPaid} style={{ display: "inline" }}>
                       <input type="hidden" name="id" value={p.id} />
-                      <button className="pill" type="submit" style={{ cursor: "pointer", background: "none" }}>Marcar pago</button>
+                      <button className="pill" type="submit" style={{ cursor: "pointer", background: "none" }}>
+                        Marcar pago{enc > 0 ? ` (${brl(Number(p.totalBilled) + enc)})` : ""}
+                      </button>
                     </form>
                   )}
-                  {p.status === "PAGO" && !p.repasseAt && (
-                    <form action={transferRent} style={{ display: "inline" }}>
+                  {ctx.isAdmin && p.status === "PAGO" && !p.repasseAt && (
+                    <form action={transferRent} style={{ display: "inline", marginLeft: ".4rem" }}>
                       <input type="hidden" name="id" value={p.id} />
                       <button className="pill" type="submit" style={{ cursor: "pointer", background: "none", borderColor: "var(--brass)", color: "var(--brass)" }}>Repassar</button>
                     </form>
@@ -125,7 +157,7 @@ export default async function ContratoLocacao({
         </tbody>
       </table>
 
-      {c.status === "ATIVO" && (
+      {ctx.isAdmin && c.status === "ATIVO" && (
         <div style={{ display: "flex", gap: ".8rem", marginTop: "1.4rem", flexWrap: "wrap" }}>
           <form action={closeRentalContract}>
             <input type="hidden" name="id" value={c.id} />
@@ -140,7 +172,7 @@ export default async function ContratoLocacao({
         </div>
       )}
       <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: "1rem" }}>
-        Reajuste anual, multa rescisória proporcional (Lei 8.245), vistorias e portais do proprietário/inquilino: Fase 2 do módulo.
+        Multa rescisória proporcional (Lei 8.245), vistorias e portais do proprietário: Fase 2B do módulo.
         Contrato assinado e vistorias: anexe em Documentos, vinculados ao imóvel.
       </p>
     </>

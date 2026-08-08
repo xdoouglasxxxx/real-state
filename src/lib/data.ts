@@ -458,6 +458,7 @@ export async function getDashboardIntel(orgId: string, opts: { finance?: boolean
     // vencimentos financeiros próximos (só para quem acessa o Financeiro)
     if (opts.finance) {
       try {
+        await refreshOverdueRents(orgId);
         const d5 = new Date(Date.now() + 5 * 86400000);
         const due = await prisma.financeEntry.aggregate({
           where: { organizationId: orgId, paidAt: null, dueDate: { gte: new Date(), lte: d5 } },
@@ -529,7 +530,7 @@ export const CLIENT_STAGE: Record<string, { label: string; pct: number }> = {
 /** Tudo que o cliente pode ver, amarrado pelo E-MAIL do contato neste tenant.
  *  SEGURANÇA: nada de anotações internas, autoria, comissões ou dados de outros. */
 export async function getClientPortal(orgId: string, email: string) {
-  const empty = { contacts: [] as any[], journeys: [] as any[], visits: [] as any[], favorites: [] as any[] };
+  const empty = { contacts: [] as any[], journeys: [] as any[], visits: [] as any[], favorites: [] as any[], rental: null as any };
   if (!hasDb() || !email) return empty;
   try {
     const contacts = await prisma.contact.findMany({
@@ -584,7 +585,21 @@ export async function getClientPortal(orgId: string, email: string) {
       }),
     ]);
 
-    return { contacts, journeys: leads, visits, favorites };
+    // Contrato de locação ATIVO do inquilino — nunca adminFee, repasse ou dados do proprietário
+    const rental = await prisma.rentalContract.findFirst({
+      where: { organizationId: orgId, status: "ATIVO", tenant: { email: { equals: email, mode: "insensitive" } } },
+      select: {
+        id: true, type: true, rentValue: true, dueDay: true, guaranteeType: true,
+        startDate: true, endDate: true,
+        property: { select: { title: true, neighborhood: true } },
+        payments: {
+          orderBy: { dueDate: "asc" }, take: 6,
+          select: { referenceMonth: true, dueDate: true, totalBilled: true, status: true },
+        },
+      },
+    });
+
+    return { contacts, journeys: leads, visits, favorites, rental: rental ?? null };
   } catch (e) {
     console.error("getClientPortal:", e);
     return empty;

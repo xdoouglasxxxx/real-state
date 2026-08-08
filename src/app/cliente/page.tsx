@@ -1,6 +1,6 @@
 import { getTenant } from "@/lib/tenant";
 import { getSession } from "@/lib/auth";
-import { getClientPortal, CLIENT_STAGE } from "@/lib/data";
+import { getClientPortal, CLIENT_STAGE, RENTAL_TYPE, GUARANTEE_LABEL } from "@/lib/data";
 import { brl } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -149,6 +149,50 @@ export default async function ClientePortal() {
           ))}
         </section>
       )}
+
+      {/* ---- Locação ativa ---- */}
+      {data.rental && (() => {
+        const r = data.rental;
+        const PAY_LABEL: Record<string, string> = { PAGO: "Pago", PREVISTO: "Previsto", ATRASADO: "Atrasado", CANCELADO: "Cancelado" };
+        const PAY_COLOR: Record<string, string> = { PAGO: "#8fbb7d", ATRASADO: "#e57373", PREVISTO: "var(--stone)", CANCELADO: "var(--stone)" };
+        return (
+          <section className="ficha-box" style={{ marginBottom: "1.4rem" }}>
+            <h2>Minha locação</h2>
+            <p style={{ marginBottom: ".3rem" }}><strong>{r.property?.title}</strong>{r.property?.neighborhood ? ` · ${r.property.neighborhood}` : ""}</p>
+            <p style={{ color: "var(--stone)", fontSize: ".88rem", marginBottom: ".6rem" }}>
+              {RENTAL_TYPE[r.type] ?? r.type} · Garantia: {GUARANTEE_LABEL[r.guaranteeType]} · vence todo dia {r.dueDay}
+            </p>
+            <div className="kpi" style={{ border: "none", padding: 0, marginBottom: ".8rem" }}>
+              <strong>{brl(Number(r.rentValue))}</strong><span>aluguel mensal · vigência até {fmtD(r.endDate)}</span>
+            </div>
+            {r.payments.length > 0 && (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: ".88rem" }}>
+                <thead>
+                  <tr style={{ color: "var(--stone)", textAlign: "left" }}>
+                    <th style={{ paddingBottom: ".4rem", fontWeight: 500 }}>Referência</th>
+                    <th style={{ paddingBottom: ".4rem", fontWeight: 500 }}>Vencimento</th>
+                    <th style={{ paddingBottom: ".4rem", fontWeight: 500 }}>Valor</th>
+                    <th style={{ paddingBottom: ".4rem", fontWeight: 500 }}>Situação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {r.payments.map((p: any) => (
+                    <tr key={p.referenceMonth} style={{ borderTop: "1px solid var(--line)" }}>
+                      <td style={{ padding: ".35rem 0" }}>{p.referenceMonth}</td>
+                      <td style={{ padding: ".35rem 0" }}>{fmtD(p.dueDate)}</td>
+                      <td style={{ padding: ".35rem 0", whiteSpace: "nowrap" }}>{brl(Number(p.totalBilled))}</td>
+                      <td style={{ padding: ".35rem 0", color: PAY_COLOR[p.status] ?? "var(--stone)" }}>{PAY_LABEL[p.status] ?? p.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".7rem" }}>
+              Dúvidas sobre pagamentos? Entre em contato com a imobiliária.
+            </p>
+          </section>
+        );
+      })()}
 
       {/* ---- Favoritos ---- */}
       {data.favorites.length > 0 && (

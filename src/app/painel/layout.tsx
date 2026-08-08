@@ -33,6 +33,7 @@ export default async function PainelLayout({ children }: { children: React.React
   // Papel: sessões antigas (sem role) eram sempre do admin
   const role = session?.master ? "ORG_ADMIN" : session?.role ?? "ORG_ADMIN";
   if (role === "CLIENT") redirect("/cliente"); // comprador tem portal próprio
+  if (role === "OWNER") redirect("/login?erro=perfil"); // proprietário não tem painel ainda
   const isAdmin = session?.master || role === "ORG_ADMIN";
   const isAgent = !session?.master && role === "AGENT";
 
@@ -62,7 +63,7 @@ export default async function PainelLayout({ children }: { children: React.React
         <Link className="panel-link" href="/painel/imoveis">Imóveis</Link>
         {!isAgent && <Link className="panel-link" href="/painel/corretores">Corretores</Link>}
         {!isAgent && <Link className="panel-link" href="/painel/documentos">Documentos</Link>}
-        {isAdmin && <Link className="panel-link" href="/painel/locacao">Locação</Link>}
+        {!isAgent && <Link className="panel-link" href="/painel/locacao">Locação</Link>}
         {isAdmin && <Link className="panel-link" href="/painel/financeiro">Financeiro</Link>}
         {isAdmin && <Link className="panel-link" href="/painel/usuarios">Usuários</Link>}
         {isAdmin && <Link className="panel-link" href="/painel/assinatura">Assinatura</Link>}

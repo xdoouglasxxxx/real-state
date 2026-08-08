@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/perm";
+import { requireManagerUp } from "@/lib/perm";
 import { getRentals, RENTAL_TYPE } from "@/lib/data";
 import { brl, brlCompact } from "@/lib/format";
 
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 const fmtD = (x: Date | string) => new Date(x).toLocaleDateString("pt-BR");
 
 export default async function Locacao() {
-  const ctx = await requireAdmin();
+  const ctx = await requireManagerUp();
   const r = await getRentals(ctx.org.id);
   const STATUS_PILL: Record<string, [string, object | undefined]> = {
     ATIVO: ["Ativo", { borderColor: "#425c3c", color: "#8fbb7d" }],

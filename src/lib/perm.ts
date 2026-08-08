@@ -79,7 +79,8 @@ export async function requirePanel(): Promise<PanelContext> {
     };
   }
   if (!ctx) redirect("/login");
-  if (ctx!.role === "CLIENT") redirect("/cliente"); // cliente tem portal próprio
+  if (ctx!.role === "CLIENT") redirect("/cliente");
+  if (ctx!.role === "OWNER") redirect("/login?erro=perfil"); // cliente tem portal próprio
   return ctx!;
 }
 

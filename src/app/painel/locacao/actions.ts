@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/perm";
+import { requireAdmin, requireManagerUp } from "@/lib/perm";
 
 const rethrowRedirect = (e: unknown) => {
   if (e && typeof e === "object" && "digest" in e && String((e as any).digest).startsWith("NEXT_REDIRECT")) throw e;
@@ -117,9 +117,10 @@ export async function createRentalContract(formData: FormData) {
   }
 }
 
-/** Inquilino pagou: entrada no caixa (aluguel + taxas) e libera o repasse. */
+/** Inquilino pagou: entrada no caixa (aluguel + encargos) e libera o repasse.
+ *  Atomic gate via updateMany — dois cliques simultâneos não geram lançamento duplo. */
 export async function markRentPaid(formData: FormData) {
-  const ctx = await requireAdmin();
+  const ctx = await requireManagerUp();
   const id = String(formData.get("id") ?? "");
   let contractId = "";
   try {
@@ -130,18 +131,36 @@ export async function markRentPaid(formData: FormData) {
     if (pay) {
       contractId = pay.contract.id;
       const now = new Date();
-      const fin = await prisma.financeEntry.create({
-        data: {
-          organizationId: ctx.org.id, direction: "IN", category: "ALUGUEL_RECEBIDO",
-          description: `Aluguel ${pay.referenceMonth} — ${pay.contract.property.title} (${pay.contract.tenant.name})`,
-          amount: pay.totalBilled, dueDate: pay.dueDate, paidAt: now,
-          createdBy: ctx.master ? "Master (plataforma)" : ctx.email,
-        },
+
+      // Encargos de atraso: multa 2% + juros 1%/mês pro rata die
+      const diasAtraso = pay.status === "ATRASADO"
+        ? Math.max(0, Math.floor((now.getTime() - new Date(pay.dueDate).getTime()) / 86400000))
+        : 0;
+      const base = Number(pay.totalBilled);
+      const encargos = diasAtraso > 0
+        ? Math.round((base * 0.02 + base * 0.01 * diasAtraso / 30) * 100) / 100
+        : 0;
+      const amount = base + encargos;
+      const descSuffix = encargos > 0
+        ? ` + encargos de atraso (R$ ${encargos.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
+        : "";
+
+      // Atomic gate: apenas quem atualiza (count===1) cria a entrada financeira
+      const gate = await prisma.rentPayment.updateMany({
+        where: { id: pay.id, organizationId: ctx.org.id, status: { in: ["PREVISTO", "ATRASADO"] } },
+        data: { status: "PAGO", paidAt: now },
       });
-      await prisma.rentPayment.update({
-        where: { id: pay.id },
-        data: { status: "PAGO", paidAt: now, financeEntryId: fin.id },
-      });
+      if (gate.count === 1) {
+        const fin = await prisma.financeEntry.create({
+          data: {
+            organizationId: ctx.org.id, direction: "IN", category: "ALUGUEL_RECEBIDO",
+            description: `Aluguel ${pay.referenceMonth} — ${pay.contract.property.title} (${pay.contract.tenant.name})${descSuffix}`,
+            amount, dueDate: pay.dueDate, paidAt: now,
+            createdBy: ctx.master ? "Master (plataforma)" : ctx.email,
+          },
+        });
+        await prisma.rentPayment.update({ where: { id: pay.id }, data: { financeEntryId: fin.id } });
+      }
     }
   } catch (e) { console.error("markRentPaid:", e); }
   revalidatePath("/painel/locacao");
@@ -149,7 +168,8 @@ export async function markRentPaid(formData: FormData) {
   redirect("/painel/locacao");
 }
 
-/** Repasse ao proprietário: saída no caixa (aluguel − taxa adm). NUNCA antes do pagamento. */
+/** Repasse ao proprietário: saída no caixa (aluguel − taxa adm). NUNCA antes do pagamento.
+ *  Atomic gate via updateMany — dois cliques não geram repasse duplo. */
 export async function transferRent(formData: FormData) {
   const ctx = await requireAdmin();
   const id = String(formData.get("id") ?? "");
@@ -163,15 +183,22 @@ export async function transferRent(formData: FormData) {
       contractId = pay.contract.id;
       const now = new Date();
       const repasse = Number(pay.rentValue) - Number(pay.adminFee);
-      await prisma.financeEntry.create({
-        data: {
-          organizationId: ctx.org.id, direction: "OUT", category: "REPASSE_LOCACAO",
-          description: `Repasse ${pay.referenceMonth} — ${pay.contract.owner.name} (${pay.contract.property.title})`,
-          amount: repasse, dueDate: now, paidAt: now,
-          createdBy: ctx.master ? "Master (plataforma)" : ctx.email,
-        },
+
+      // Atomic gate: apenas quem seta repasseAt (count===1) cria a saída financeira
+      const gate = await prisma.rentPayment.updateMany({
+        where: { id: pay.id, organizationId: ctx.org.id, status: "PAGO", repasseAt: null },
+        data: { repasseAt: now, repasseValue: repasse },
       });
-      await prisma.rentPayment.update({ where: { id: pay.id }, data: { repasseAt: now, repasseValue: repasse } });
+      if (gate.count === 1) {
+        await prisma.financeEntry.create({
+          data: {
+            organizationId: ctx.org.id, direction: "OUT", category: "REPASSE_LOCACAO",
+            description: `Repasse ${pay.referenceMonth} — ${pay.contract.owner.name} (${pay.contract.property.title})`,
+            amount: repasse, dueDate: now, paidAt: now,
+            createdBy: ctx.master ? "Master (plataforma)" : ctx.email,
+          },
+        });
+      }
     }
   } catch (e) { console.error("transferRent:", e); }
   revalidatePath("/painel/locacao");
