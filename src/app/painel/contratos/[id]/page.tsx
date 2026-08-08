@@ -42,6 +42,7 @@ export default async function ContratoPage({
       <div className="phead">
         <h1>{contract.proposal?.property?.title ?? "Contrato"}</h1>
         <span className="pill">{STATUS_LABEL[contract.status] ?? contract.status}</span>
+        <Link className="btn-outline" href={`/painel/contratos/${contract.id}/documento`} style={{ fontSize: ".85rem" }}>📄 Gerar contrato</Link>
       </div>
 
       {searchParams.salvo && <p className="ok" style={{ marginBottom: "1rem" }}>✔ Forma de pagamento salva.</p>}

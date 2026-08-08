@@ -67,6 +67,7 @@ export default async function PainelLayout({ children }: { children: React.React
         {isAdmin && <Link className="panel-link" href="/painel/financeiro">Financeiro</Link>}
         {isAdmin && <Link className="panel-link" href="/painel/usuarios">Usuários</Link>}
         {isAdmin && <Link className="panel-link" href="/painel/assinatura">Assinatura</Link>}
+        {isAdmin && <Link className="panel-link" href="/painel/modelos">Modelos</Link>}
         {isAdmin && <Link className="panel-link" href="/painel/configuracoes">Configurações</Link>}
         <Link className="panel-link" href="/painel/conta">Minha conta</Link>
 
