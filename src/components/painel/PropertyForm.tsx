@@ -18,7 +18,7 @@ export default function PropertyForm({
         <h2>Informações principais</h2>
         <div className="pgrid">
           <label className="span2">Título*
-            <input name="title" defaultValue={p.title ?? ""} required placeholder="Ex.: Casa do Vale" />
+            <input name="title" defaultValue={p.title ?? ""} required placeholder="Ex.: Casa do Vale" maxLength={200} />
           </label>
           <label>Tipo*
             <select name="type" defaultValue={p.type ?? "HOUSE"}>
@@ -59,7 +59,7 @@ export default function PropertyForm({
           </label>
           <label className="span4">Descrição
             <textarea name="description" rows={5} defaultValue={p.description ?? ""}
-              placeholder="Descreva o imóvel — ambientes, acabamentos, diferenciais..." />
+              placeholder="Descreva o imóvel — ambientes, acabamentos, diferenciais..." maxLength={5000} />
           </label>
         </div>
       </section>
@@ -74,7 +74,7 @@ export default function PropertyForm({
           <label>Área útil (m²)<input name="areaM2" type="number" min="0" defaultValue={p.areaM2 ?? ""} /></label>
           <label className="span4">Comodidades (separadas por vírgula)
             <input name="features" defaultValue={(p.features ?? []).join(", ")}
-              placeholder="Piscina aquecida, Adega, Home theater, Energia solar" />
+              placeholder="Piscina aquecida, Adega, Home theater, Energia solar" maxLength={500} />
           </label>
         </div>
       </section>
@@ -82,12 +82,12 @@ export default function PropertyForm({
       <section>
         <h2>Localização</h2>
         <div className="pgrid">
-          <label>Bairro/Região<input name="neighborhood" defaultValue={p.neighborhood ?? ""} /></label>
-          <label>Cidade<input name="city" defaultValue={p.city ?? ""} /></label>
+          <label>Bairro/Região<input name="neighborhood" defaultValue={p.neighborhood ?? ""} maxLength={100} /></label>
+          <label>Cidade<input name="city" defaultValue={p.city ?? ""} maxLength={100} /></label>
           <label>UF<input name="state" maxLength={2} defaultValue={p.state ?? "SP"} /></label>
-          <label>CEP<input name="zipcode" defaultValue={p.zipcode ?? ""} /></label>
+          <label>CEP<input name="zipcode" defaultValue={p.zipcode ?? ""} maxLength={9} /></label>
           <label className="span2">Endereço (interno — não aparece no site)
-            <input name="address" defaultValue={p.address ?? ""} />
+            <input name="address" defaultValue={p.address ?? ""} maxLength={300} />
           </label>
           <label>Latitude<input name="latitude" type="number" step="any" defaultValue={p.latitude ?? ""} /></label>
           <label>Longitude<input name="longitude" type="number" step="any" defaultValue={p.longitude ?? ""} /></label>
@@ -99,7 +99,7 @@ export default function PropertyForm({
         <h2>Fotos e tour virtual</h2>
         <PhotoUploader initial={p.images ?? []} />
         <label className="pform-tour">URL do tour virtual (Matterport, Kuula...)
-          <input name="tourUrl" defaultValue={p.tourUrl ?? ""} placeholder="https://my.matterport.com/show/?m=..." />
+          <input name="tourUrl" defaultValue={p.tourUrl ?? ""} placeholder="https://my.matterport.com/show/?m=..." maxLength={500} />
         </label>
       </section>
 
@@ -107,10 +107,10 @@ export default function PropertyForm({
         <h2>SEO (opcional)</h2>
         <div className="pgrid">
           <label className="span2">Título para o Google
-            <input name="seoTitle" defaultValue={p.seoTitle ?? ""} placeholder="Deixe vazio para gerar automático" />
+            <input name="seoTitle" defaultValue={p.seoTitle ?? ""} placeholder="Deixe vazio para gerar automático" maxLength={70} />
           </label>
           <label className="span2">Descrição para o Google
-            <input name="seoDescription" defaultValue={p.seoDescription ?? ""} placeholder="Deixe vazio para gerar automático" />
+            <input name="seoDescription" defaultValue={p.seoDescription ?? ""} placeholder="Deixe vazio para gerar automático" maxLength={160} />
           </label>
         </div>
       </section>

@@ -50,14 +50,34 @@ export default async function PropertyPage({ params, searchParams }: Props) {
         <div>
           <Gallery images={p.images} title={p.title} badge={STATUS_LABEL[p.status] ?? p.status} />
 
-          {p.tourUrl && (
-            <div style={{ marginTop: "1.5rem" }}>
-              <p className="eyebrow">Tour virtual</p>
-              <iframe src={p.tourUrl} title={`Tour virtual — ${p.title}`}
-                style={{ width: "100%", aspectRatio: "16/9", border: "1px solid var(--line)", borderRadius: 4 }}
-                allow="fullscreen; vr" />
-            </div>
-          )}
+          {(() => {
+            // H3: aceitar apenas https:// de hosts conhecidos — impede javascript: e iframes maliciosos.
+            const TOUR_HOSTS = [
+              "my.matterport.com", "matterport.com",
+              "kuula.co", "app.kuula.co",
+              "www.youtube.com", "youtube.com", "youtu.be",
+              "player.vimeo.com", "vimeo.com",
+            ];
+            const isSafeTourUrl = (url: string) => {
+              try {
+                const u = new URL(url);
+                return u.protocol === "https:" && TOUR_HOSTS.some(h => u.hostname === h || u.hostname.endsWith(`.${h}`));
+              } catch { return false; }
+            };
+            return p.tourUrl && isSafeTourUrl(p.tourUrl) ? (
+              <div style={{ marginTop: "1.5rem" }}>
+                <p className="eyebrow">Tour virtual</p>
+                <iframe
+                  src={p.tourUrl}
+                  title={`Tour virtual — ${p.title}`}
+                  style={{ width: "100%", aspectRatio: "16/9", border: "1px solid var(--line)", borderRadius: 4 }}
+                  allow="fullscreen; xr-spatial-tracking"
+                  sandbox="allow-scripts allow-same-origin allow-fullscreen allow-pointer-lock"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                />
+              </div>
+            ) : null;
+          })()}
 
           {p.latitude && p.longitude && (
             <div style={{ marginTop: "1.5rem" }}>
@@ -104,9 +124,9 @@ export default async function PropertyPage({ params, searchParams }: Props) {
                       <input type="hidden" name="propertyId" value={p.id} />
                       <input type="hidden" name="slug" value={p.slug} />
                       {negotiated && <input type="hidden" name="wantSimilar" value="1" />}
-                      <input name="name" placeholder="Seu nome" required />
-                      <input name="phone" placeholder="Telefone / WhatsApp" required />
-                      <textarea name="message" placeholder="Mensagem (opcional)" rows={3} />
+                      <input name="name" placeholder="Seu nome" required maxLength={120} />
+                      <input name="phone" placeholder="Telefone / WhatsApp" required maxLength={20} />
+                      <textarea name="message" placeholder="Mensagem (opcional)" rows={3} maxLength={2000} />
                       {searchParams.erro && <p style={{ color: "#d88" }}>Preencha nome e telefone.</p>}
                       <button className="btn-solid" type="submit">
                         {negotiated ? "Quero um imóvel como este" : "Enviar interesse"}

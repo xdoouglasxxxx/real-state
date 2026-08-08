@@ -38,10 +38,10 @@ export default function Vender({ searchParams }: { searchParams: { enviado?: str
       ) : (
         <form action={submitSellInquiry} className="form boxed">
           <div className="form-row">
-            <input name="name" placeholder="Seu nome" required />
-            <input name="phone" placeholder="Telefone / WhatsApp" required />
+            <input name="name" placeholder="Seu nome" required maxLength={120} />
+            <input name="phone" placeholder="Telefone / WhatsApp" required maxLength={20} />
           </div>
-          <input name="address" placeholder="Endereço do imóvel" required />
+          <input name="address" placeholder="Endereço do imóvel" required maxLength={300} />
           <select name="type" defaultValue="HOUSE">
             <option value="HOUSE">Casa</option>
             <option value="APARTMENT">Apartamento</option>

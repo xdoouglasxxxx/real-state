@@ -60,18 +60,22 @@ export async function createFinanceEntry(formData: FormData) {
   redirect(`${back}&salvo=1`);
 }
 
-/** Marca como pago/recebido — ou estorna (volta para em aberto). */
+/** Marca como pago/recebido — ou estorna (volta para em aberto).
+ *  M5: duas updateMany condicionais eliminam o read-then-write sem transação:
+ *  a segunda só altera se o estado ainda for o esperado no momento da escrita. */
 export async function toggleFinancePaid(formData: FormData) {
   const ctx = await requireAdmin();
   const id = String(formData.get("id") ?? "");
   const back = `/painel/financeiro?mes=${String(formData.get("mes") ?? "")}`;
   try {
-    // Blindagem: só lançamentos DESTE tenant
-    const entry = await prisma.financeEntry.findFirst({ where: { id, organizationId: ctx.org.id } });
-    if (entry) {
-      await prisma.financeEntry.update({
-        where: { id: entry.id },
-        data: { paidAt: entry.paidAt ? null : new Date() },
+    const markedPaid = await prisma.financeEntry.updateMany({
+      where: { id, organizationId: ctx.org.id, paidAt: null },
+      data: { paidAt: new Date() },
+    });
+    if (markedPaid.count === 0) {
+      await prisma.financeEntry.updateMany({
+        where: { id, organizationId: ctx.org.id, paidAt: { not: null } },
+        data: { paidAt: null },
       });
     }
   } catch (e) { console.error("toggleFinancePaid:", e); }

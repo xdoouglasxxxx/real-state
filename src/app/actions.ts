@@ -66,20 +66,21 @@ async function createLead(opts: {
 
 export async function submitVisitInquiry(formData: FormData) {
   const wantSimilar = formData.get("wantSimilar") === "1";
-  const name = String(formData.get("name") ?? "").trim();
-  const phone = String(formData.get("phone") ?? "").trim();
-  const message = String(formData.get("message") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim().slice(0, 120);
+  const phone = String(formData.get("phone") ?? "").trim().slice(0, 20);
+  const message = String(formData.get("message") ?? "").trim().slice(0, 2000);
   const propertyId = String(formData.get("propertyId") ?? "");
-  const slug = String(formData.get("slug") ?? "");
+  // M2: slug vem do FormData — sanitizar para [a-z0-9-] antes de usar em redirect.
+  const slug = String(formData.get("slug") ?? "").replace(/[^a-z0-9-]/g, "").slice(0, 80);
   if (!name || !phone) redirect(`/imovel/${slug}?erro=1`);
   await createLead({ name, phone, message, propertyId, kind: "visit", redirectTo: `/imovel/${slug}?enviado=1` });
 }
 
 export async function submitSellInquiry(formData: FormData) {
-  const name = String(formData.get("name") ?? "").trim();
-  const phone = String(formData.get("phone") ?? "").trim();
-  const address = String(formData.get("address") ?? "").trim();
-  const type = String(formData.get("type") ?? "");
+  const name = String(formData.get("name") ?? "").trim().slice(0, 120);
+  const phone = String(formData.get("phone") ?? "").trim().slice(0, 20);
+  const address = String(formData.get("address") ?? "").trim().slice(0, 300);
+  const type = String(formData.get("type") ?? "").slice(0, 30);
   if (!name || !phone || !address) redirect("/vender?erro=1");
   await createLead({ name, phone, message: `Quer vender: ${address} (${type})`, kind: "sell", redirectTo: "/vender?enviado=1" });
 }

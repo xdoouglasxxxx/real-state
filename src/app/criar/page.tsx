@@ -24,17 +24,17 @@ export default function Criar({ searchParams }: { searchParams: { erro?: string 
 
         <form action={createTenant} className="form" style={{ marginTop: "1.4rem" }}>
           <div className="form-row">
-            <input name="name" placeholder="Nome da imobiliária*" required />
+            <input name="name" placeholder="Nome da imobiliária*" required maxLength={120} />
             <input name="slug" placeholder="Endereço do SITE (ex.: silva) — não é rua!" pattern="[a-zA-Z0-9-]{2,40}"
-              title="Só letras, números e hífen" />
+              title="Só letras, números e hífen" maxLength={40} />
           </div>
           <p className="auth-hint">O endereço do site vira o link da sua imobiliária (ex.: silva → silva.plataforma.com.br). Deixe em branco para gerar automaticamente a partir do nome.</p>
           <div className="form-row">
-            <input name="city" placeholder="Cidade" />
-            <input name="creci" placeholder="CRECI jurídico" />
+            <input name="city" placeholder="Cidade" maxLength={100} />
+            <input name="creci" placeholder="CRECI jurídico" maxLength={30} />
           </div>
           <div className="form-row">
-            <input name="phone" placeholder="Telefone / WhatsApp" />
+            <input name="phone" placeholder="Telefone / WhatsApp" maxLength={20} />
             <select name="plan" defaultValue="PRO">
               <option value="STARTER">Start — R$149/mês · site + 100 imóveis</option>
               <option value="PRO">Pro — R$349/mês · CRM completo ⭐</option>
@@ -51,8 +51,8 @@ export default function Criar({ searchParams }: { searchParams: { erro?: string 
           <hr className="auth-hr" />
           <p className="auth-sub">Acesso do administrador</p>
           <div className="form-row">
-            <input name="email" type="email" placeholder="Seu e-mail*" required />
-            <input name="password" type="password" placeholder="Senha (mín. 6)*" minLength={6} required />
+            <input name="email" type="email" placeholder="Seu e-mail*" required maxLength={160} />
+            <input name="password" type="password" placeholder="Senha (mín. 6)*" minLength={6} required maxLength={128} />
           </div>
 
           <button className="btn-solid" type="submit">Criar minha imobiliária →</button>

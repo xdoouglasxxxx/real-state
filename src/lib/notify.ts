@@ -21,7 +21,8 @@ export async function notifyNewLead(opts: {
   ].filter(Boolean);
   const body = lines.join("\n");
 
-  console.log("[notifyNewLead]", body.replace(/\n/g, " | "));
+  // M3: não logar nome/telefone do lead — dados pessoais (LGPD).
+  console.log("[notifyNewLead] org:", opts.orgName, "| whatsapp configurado:", Boolean(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_ID));
 
   const token = process.env.WHATSAPP_TOKEN;
   const phoneId = process.env.WHATSAPP_PHONE_ID;
