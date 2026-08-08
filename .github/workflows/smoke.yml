@@ -5,7 +5,7 @@
 # Recomendação futura: criar um usuário Postgres SOMENTE-LEITURA no Supabase
 # para este secret (princípio do menor privilégio).
 # ============================================================
-name: Daily Health Check
+name: Smoke Check
 
 on:
   push:

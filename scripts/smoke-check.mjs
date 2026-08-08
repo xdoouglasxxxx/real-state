@@ -20,6 +20,13 @@ import { readFileSync, writeFileSync, existsSync, appendFileSync } from "node:fs
 /* ---------------- config ---------------- */
 const SLOW_MS = 1500; // acima disso, PASS vira WARN (performance)
 const WEIGHT = { P0: 40, P1: 10, P2: 3, P3: 1 };
+const CAT_LABEL = {
+  INFRA: "Infraestrutura", MIG: "Migrações do banco", SITE: "Site público",
+  LGPD: "Compliance LGPD", LOC: "Locação", GEN: "Contratos", SIM: "Simulador",
+  CRM: "CRM / Leads", COMP: "Compliance operacional", SEC: "Segurança",
+  INT: "Integridade dos dados",
+};
+const catName = (c) => CAT_LABEL[c] ?? c;
 
 /* ---------------- .env manual ---------------- */
 if (existsSync(".env")) {
@@ -354,7 +361,7 @@ define("INT-003", "INT", "P3", "Retrato dos dados do tenant", async () => {
  * EXECUÇÃO
  * ============================================================ */
 const executionId = `HC-${new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14)}`;
-console.log(`\n🏥 DAILY HEALTH CHECK — ${BASE} · tenant: ${TENANT} · ${executionId}\n`);
+console.log(`\n🔥 SMOKE CHECK — ${BASE} · tenant: ${TENANT} · ${executionId}\n`);
 
 const results = [];
 for (const c of REGISTRY) {
@@ -385,7 +392,7 @@ const verdict = p0fail || p1fail ? "CRITICAL" : anyFail ? "DEGRADED" : "HEALTHY"
 const ICON = { PASS: "🟢", FAIL: "🔴", WARN: "🟡", SKIP: "⚪", INFO: "🔵" };
 let lastCat = "";
 for (const r of results) {
-  if (r.category !== lastCat) { console.log(`├──── ${r.category} ${"─".repeat(Math.max(2, 52 - r.category.length))}┤`); lastCat = r.category; }
+  if (r.category !== lastCat) { const _cn = catName(r.category); console.log(`├──── ${_cn} ${"─".repeat(Math.max(2, 52 - _cn.length))}┤`); lastCat = r.category; }
   console.log(`${ICON[r.st]} ${r.st.padEnd(4)} │ [${r.severity}] ${r.id} · ${r.name}${r.detail ? ` — ${r.detail}` : ""} (${r.durationMs}ms)`);
 }
 const count = (st) => results.filter((r) => r.st === st).length;
@@ -398,14 +405,14 @@ console.log(`Mais lentos: ${slow.map((r) => `${r.id} ${r.durationMs}ms`).join(" 
 if (process.env.GITHUB_STEP_SUMMARY) {
   const badge = verdict === "HEALTHY" ? "🟢" : verdict === "DEGRADED" ? "🟡" : "🔴";
   const cats = [...new Set(results.map((r) => r.category))];
-  let md = `\n## ${badge} ${TENANT} — Health Score **${score}%** · ${verdict}\n\n`;
+  let md = `\n## ${badge} Smoke Check · ${TENANT} — **${score}%** · ${verdict}\n\n`;
   md += `Execution \`${executionId}\` · ${count("PASS")} PASS / ${count("FAIL")} FAIL / ${count("WARN")} WARN / ${count("SKIP")} SKIP\n\n`;
   md += `| Categoria | Resultado |\n|---|---|\n`;
   for (const cat of cats) {
     const rs = results.filter((r) => r.category === cat);
     const p = rs.filter((r) => r.st === "PASS" || r.st === "WARN").length;
     const f = rs.filter((r) => r.st === "FAIL").length;
-    md += `| ${cat} | ${f > 0 ? "🔴" : "🟢"} ${p}/${rs.filter((r) => r.st !== "SKIP" && r.st !== "INFO").length} pass${f ? ` · **${f} FAIL**` : ""} |\n`;
+    md += `| ${catName(cat)} | ${f > 0 ? "🔴" : "🟢"} ${p}/${rs.filter((r) => r.st !== "SKIP" && r.st !== "INFO").length} pass${f ? ` · **${f} FAIL**` : ""} |\n`;
   }
   const fails = results.filter((r) => r.st === "FAIL");
   if (fails.length) {
