@@ -155,6 +155,8 @@ model Agent {
   @@index([organizationId])
   financeEntries FinanceEntry[]
   rentalContracts RentalContract[]
+  creciUf         String? // compliance (Onda 4.5)
+  creciValidUntil DateTime?
 }
 
 // Cliente, proprietário ou ambos — pessoa de contato
@@ -381,6 +383,8 @@ model Lead {
   @@index([organizationId, stage])
   @@index([organizationId, agentId, stage])
   @@index([organizationId, createdAt])
+  lgpdConsentAt DateTime? // LGPD: consentimento no formulário
+  lgpdIp        String?
 }
 
 enum LeadSource {
@@ -502,6 +506,9 @@ model Contract {
   finance     FinanceEntry[]
 
   @@index([organizationId, status])
+  paymentMethod  String? // COAF (Onda 4.5)
+  cashAmount     Decimal   @default(0) @db.Decimal(14, 2)
+  coafReportedAt DateTime?
 }
 
 enum ContractStatus {
