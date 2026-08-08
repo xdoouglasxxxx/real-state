@@ -2,12 +2,26 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/perm";
 import { getFinance, getAgents, getPanelProperties, FIN_CATEGORY } from "@/lib/data";
 import { brl, brlCompact } from "@/lib/format";
-import { createFinanceEntry, toggleFinancePaid, payCommission } from "./actions";
+import { createFinanceEntry, toggleFinancePaid, payCommission, createCommission } from "./actions";
 import MoneyInput from "@/components/painel/MoneyInput";
 
 export const dynamic = "force-dynamic";
 
 const fmtD = (x: Date | string) => new Date(x).toLocaleDateString("pt-BR");
+
+/** Setinha de variação vs mês anterior (clamp >400%). goodUp: subir é bom (receitas/resultado). */
+function DreDelta({ now, prev, goodUp = false }: { now: number; prev: number; goodUp?: boolean }) {
+  if (!prev && !now) return null;
+  const pct = prev === 0 ? 100 : Math.round((100 * (now - prev)) / Math.abs(prev));
+  if (pct === 0) return null;
+  const up = pct > 0;
+  const good = goodUp ? up : !up;
+  return (
+    <small style={{ marginLeft: ".45rem", fontSize: ".72rem", color: good ? "#8fbb7d" : "#c67a6b" }}>
+      {up ? "▲" : "▼"} {Math.abs(pct) > 400 ? ">400" : Math.abs(pct)}%
+    </small>
+  );
+}
 
 export default async function Financeiro({ searchParams }: { searchParams: { mes?: string; salvo?: string; erro?: string; comissao?: string; filtro?: string; cat?: string; q?: string } }) {
   const ctx = await requireAdmin();
@@ -62,7 +76,11 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
       </div>
 
       {searchParams.salvo && <p className="ok" style={{ marginBottom: "1rem" }}>✔ Lançamento registrado.</p>}
-      {searchParams.comissao && <p className="ok" style={{ marginBottom: "1rem" }}>✔ Comissão paga — o repasse já entrou como saída no fluxo de caixa.</p>}
+      {searchParams.comissao === "1" && <p className="ok" style={{ marginBottom: "1rem" }}>✔ Pagamento registrado — o repasse já entrou como saída no fluxo de caixa.</p>}
+      {searchParams.comissao === "nova" && <p className="ok" style={{ marginBottom: "1rem" }}>✔ Comissão criada — aparece em "Comissões a pagar".</p>}
+      {searchParams.comissao === "valor" && <p className="pform-error">Valor do pagamento inválido.</p>}
+      {searchParams.comissao === "campos" && <p className="pform-error">Para a nova comissão: contrato, corretor e valor são obrigatórios.</p>}
+      {searchParams.comissao === "erro" && <p className="pform-error">Erro ao criar a comissão — tente de novo.</p>}
       {searchParams.erro && <p className="pform-error">Confira os campos: direção, categoria, descrição, valor e vencimento são obrigatórios.</p>}
 
       {/* ---- KPIs do mês (clique = filtra o extrato; clique de novo = limpa) ---- */}
@@ -129,20 +147,25 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
           <h2>DRE simplificado · {mesLabel}</h2>
           {dreIn.length + dreOut.length === 0 && <p style={{ color: "var(--stone)" }}>Sem movimentações pagas neste mês.</p>}
           {dreIn.map((r) => (
-            <Link key={r.category} href={href({ cat: r.category })} title="Ver transações"
+            <Link key={r.category} href={href({ cat: r.category })} title={`Mês anterior: ${brl(r.prev)}`}
                   style={{ display: "flex", justifyContent: "space-between", fontSize: ".9rem", marginBottom: ".3rem", textDecoration: cat === r.category ? "underline" : "none", textUnderlineOffset: 3 }}>
-              <span>{FIN_CATEGORY[r.category] ?? r.category}</span><span>{brl(r.total)}</span>
+              <span>{FIN_CATEGORY[r.category] ?? r.category}<DreDelta now={r.total} prev={r.prev} goodUp /></span>
+              <span>{brl(r.total)}</span>
             </Link>
           ))}
           {dreOut.map((r) => (
-            <Link key={r.category} href={href({ cat: r.category })} title="Ver transações"
+            <Link key={r.category} href={href({ cat: r.category })} title={`Mês anterior: ${brl(r.prev)}`}
                   style={{ display: "flex", justifyContent: "space-between", fontSize: ".9rem", marginBottom: ".3rem", color: "var(--stone)", textDecoration: cat === r.category ? "underline" : "none", textUnderlineOffset: 3 }}>
-              <span>{FIN_CATEGORY[r.category] ?? r.category}</span><span>−{brl(r.total)}</span>
+              <span>{FIN_CATEGORY[r.category] ?? r.category}<DreDelta now={r.total} prev={r.prev} /></span>
+              <span>−{brl(r.total)}</span>
             </Link>
           ))}
           <p className="dre-result">
-            <span>RESULTADO</span>
+            <span>RESULTADO<DreDelta now={f.kpis.result} prev={f.drePrevResult} goodUp /></span>
             <span style={{ color: f.kpis.result >= 0 ? "var(--brass)" : "#e57373" }}>{brl(f.kpis.result)}</span>
+          </p>
+          <p style={{ color: "var(--stone)", fontSize: ".76rem", marginTop: ".4rem" }}>
+            ▲▼ comparam com o mês anterior ({brl(f.drePrevResult)} de resultado).
           </p>
         </section>
 
@@ -153,27 +176,63 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
             {pendingCms.length > 0 && <span className="badge-prioridade">PRIORIDADE</span>}
           </div>
           {pendingCms.length === 0 && <p style={{ color: "var(--stone)" }}>Nenhuma comissão pendente. ✨</p>}
-          {pendingCms.slice(0, 6).map((c: any) => (
-            <div key={c.id} className="subcard" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: ".7rem" }}>
-              <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
-                <strong>{c.agent?.name}</strong>
-                <span style={{ display: "block", color: "var(--stone)", fontSize: ".8rem" }}>{c.contract?.proposal?.property?.title ?? "—"}</span>
-                <strong style={{ color: "var(--brass)" }}>{brl(c.amount)}</strong>
-              </span>
-              <form action={payCommission}>
-                <input type="hidden" name="id" value={c.id} />
-                <input type="hidden" name="mes" value={mesStr} />
-                <button className="btn-solid" type="submit" style={{ whiteSpace: "nowrap" }}>PAGAR</button>
-              </form>
-            </div>
-          ))}
+          {pendingCms.slice(0, 6).map((c: any) => {
+            const pago = Number(c.paidAmount ?? 0);
+            const restante = Math.max(0, Number(c.amount) - pago);
+            return (
+              <div key={c.id} className="subcard">
+                <div style={{ display: "flex", justifyContent: "space-between", gap: ".7rem", alignItems: "baseline" }}>
+                  <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                    <strong>{c.agent?.name}</strong>
+                    <span style={{ display: "block", color: "var(--stone)", fontSize: ".8rem" }}>{c.contract?.proposal?.property?.title ?? "—"}</span>
+                  </span>
+                  <strong style={{ color: "var(--brass)", whiteSpace: "nowrap" }}>{brl(restante)}</strong>
+                </div>
+                {pago > 0 && (
+                  <div style={{ margin: ".45rem 0" }}>
+                    <div className="meta-bar"><i style={{ width: `${Math.round((100 * pago) / Number(c.amount))}%` }} /></div>
+                    <span style={{ fontSize: ".74rem", color: "var(--stone)" }}>{brl(pago)} de {brl(c.amount)} já pagos</span>
+                  </div>
+                )}
+                <form action={payCommission} style={{ display: "flex", gap: ".5rem", marginTop: ".5rem", alignItems: "center" }}>
+                  <input type="hidden" name="id" value={c.id} />
+                  <input type="hidden" name="mes" value={mesStr} />
+                  <input name="valor" inputMode="decimal" placeholder={`parcial (ex.: 5.000) ou vazio = ${brlCompact(restante)}`}
+                         style={{ flex: 1, minWidth: 0, fontSize: ".82rem" }} />
+                  <button className="btn-solid" type="submit" style={{ whiteSpace: "nowrap" }}>PAGAR</button>
+                </form>
+              </div>
+            );
+          })}
           {paidCms.length > 0 && (
             <div className="twin-boxes">
               <div><span>Pagas no mês</span><strong>{paidCms.length} • {brl(paidCms.reduce((s: number, c: any) => s + Number(c.amount), 0))}</strong></div>
               <div><span>Ticket médio</span><strong>{brl(paidCms.reduce((s: number, c: any) => s + Number(c.amount), 0) / paidCms.length)}</strong></div>
             </div>
           )}
-          <p className="dashed-box">📎 Rastreável: cada pagamento registra autor, data e o repasse no extrato.</p>
+          <p className="dashed-box">📎 Rastreável: cada pagamento (integral ou parcela) registra autor, data e o repasse no extrato.</p>
+
+          <details style={{ marginTop: ".7rem" }}>
+            <summary style={{ cursor: "pointer", color: "var(--stone)", fontSize: ".85rem" }}>+ Nova comissão (split de co-corretagem)</summary>
+            <form action={createCommission} style={{ display: "grid", gap: ".5rem", marginTop: ".6rem" }}>
+              <input type="hidden" name="mes" value={mesStr} />
+              <select name="contractId" required defaultValue="">
+                <option value="" disabled>Contrato...</option>
+                {f.contractsForCommission.map((k: any) => (
+                  <option key={k.id} value={k.id}>{k.proposal?.property?.title ?? k.id} · {brlCompact(k.totalAmount)}</option>
+                ))}
+              </select>
+              <select name="agentId" required defaultValue="">
+                <option value="" disabled>Corretor...</option>
+                {agents.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+              <input name="amount" required inputMode="decimal" placeholder="Valor da comissão (ex.: 15.000)" />
+              <button className="btn-outline" type="submit">Criar comissão</button>
+              <span style={{ fontSize: ".74rem", color: "var(--stone)" }}>
+                Co-corretagem: crie uma comissão para cada corretor no mesmo contrato — cada uma é paga (à vista ou parcelada) separadamente.
+              </span>
+            </form>
+          </details>
         </section>
       </div>
 

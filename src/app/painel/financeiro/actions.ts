@@ -90,27 +90,44 @@ export async function toggleFinancePaid(formData: FormData) {
   redirect(back);
 }
 
-/** Paga a comissão do corretor: marca PAID e cria o lançamento de saída junto. */
+/** Paga a comissão — integral ou PARCIAL. Cada pagamento vira saída no caixa;
+ *  a comissão só vira PAID quando o total for quitado. */
 export async function payCommission(formData: FormData) {
   const ctx = await requireAdmin();
   const id = String(formData.get("id") ?? "");
   const back = `/painel/financeiro?mes=${String(formData.get("mes") ?? "")}`;
+  const rawVal = String(formData.get("valor") ?? "").trim();
   try {
     const cm = await prisma.commission.findFirst({
       where: { id, organizationId: ctx.org.id, status: "PENDING" },
       include: { agent: { select: { name: true } } },
     });
     if (cm) {
+      const total = Number(cm.amount);
+      const jaPago = Number(cm.paidAmount ?? 0);
+      const restante = Math.max(0, total - jaPago);
+      // vazio = quitar o restante; preenchido = parcial (limitado ao restante)
+      const parsed = rawVal ? Number(rawVal.replace(/[^\d,]/g, "").replace(",", ".")) : restante;
+      const valor = Math.min(Math.max(0, parsed || 0), restante);
+      if (valor <= 0) redirect(`${back}&comissao=valor`);
+
       const now = new Date();
-      await prisma.commission.update({ where: { id: cm.id }, data: { status: "PAID", paidAt: now } });
+      const novoPago = jaPago + valor;
+      const quitou = novoPago >= total - 0.005;
+      await prisma.commission.update({
+        where: { id: cm.id },
+        data: { paidAmount: novoPago, ...(quitou ? { status: "PAID", paidAt: now } : {}) },
+      });
       await prisma.financeEntry.create({
         data: {
           organizationId: ctx.org.id,
           contractId: cm.contractId,
           direction: "OUT",
           category: "COMISSAO_PAGA",
-          description: `Repasse de comissão — ${cm.agent?.name ?? "corretor"}`,
-          amount: cm.amount,
+          description: quitou && jaPago === 0
+            ? `Repasse de comissão — ${cm.agent?.name ?? "corretor"}`
+            : `Repasse de comissão (parcela) — ${cm.agent?.name ?? "corretor"} · ${brlText(novoPago)} de ${brlText(total)}`,
+          amount: valor,
           dueDate: now,
           paidAt: now,
           agentId: cm.agentId,
@@ -118,8 +135,42 @@ export async function payCommission(formData: FormData) {
         },
       });
     }
-  } catch (e) { console.error("payCommission:", e); }
+  } catch (e) {
+    rethrowRedirect(e);
+    console.error("payCommission:", e);
+  }
   revalidatePath("/painel/financeiro");
   revalidatePath("/painel");
   redirect(`${back}&comissao=1`);
+}
+
+const brlText = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+
+/** Nova comissão em um contrato — habilita SPLIT de co-corretagem
+ *  (duas ou mais comissões no mesmo contrato, uma por corretor). */
+export async function createCommission(formData: FormData) {
+  const ctx = await requireAdmin();
+  const back = `/painel/financeiro?mes=${String(formData.get("mes") ?? "")}`;
+  const contractId = String(formData.get("contractId") ?? "");
+  const agentId = String(formData.get("agentId") ?? "");
+  const amount = Number(String(formData.get("amount") ?? "").replace(/[^\d,]/g, "").replace(",", "."));
+  if (!contractId || !agentId || !amount || amount <= 0) redirect(`${back}&comissao=campos`);
+
+  try {
+    // Blindagem: contrato e corretor DESTE tenant
+    const [contractOk, agentOk] = await Promise.all([
+      prisma.contract.findFirst({ where: { id: contractId, organizationId: ctx.org.id }, select: { id: true } }),
+      prisma.agent.findFirst({ where: { id: agentId, organizationId: ctx.org.id }, select: { id: true } }),
+    ]);
+    if (!contractOk || !agentOk) redirect(`${back}&comissao=campos`);
+    await prisma.commission.create({
+      data: { organizationId: ctx.org.id, contractId: contractOk!.id, agentId: agentOk!.id, amount },
+    });
+  } catch (e) {
+    rethrowRedirect(e);
+    console.error("createCommission:", e);
+    redirect(`${back}&comissao=erro`);
+  }
+  revalidatePath("/painel/financeiro");
+  redirect(`${back}&comissao=nova`);
 }

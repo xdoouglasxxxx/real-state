@@ -518,6 +518,7 @@ model Commission {
   agentId        String
   agent          Agent            @relation(fields: [agentId], references: [id])
   amount         Decimal          @db.Decimal(12, 2)
+  paidAmount     Decimal          @default(0) @db.Decimal(12, 2) // parcelamento (Leva 2)
   status         CommissionStatus @default(PENDING)
   paidAt         DateTime?
 

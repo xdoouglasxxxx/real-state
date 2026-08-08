@@ -671,8 +671,10 @@ export async function getFinance(orgId: string, year: number, month: number, fil
     flow: [] as { label: string; inn: number; out: number }[],
     forecast: [] as { label: string; inn: number; out: number }[],
     dre: [] as { category: string; direction: string; total: number }[],
+    drePrevResult: 0,
     entries: [] as any[],
     commissions: [] as any[],
+    contractsForCommission: [] as any[],
   };
   if (!hasDb()) return empty;
   try {
@@ -682,7 +684,7 @@ export async function getFinance(orgId: string, year: number, month: number, fil
     const flowStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
     const d90 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 90, 23, 59, 59);
-    const [paidAgg, openAgg, overdueAgg, flowRows, dreRows, entries, pendingAhead, commissions] = await Promise.all([
+    const [paidAgg, openAgg, overdueAgg, flowRows, dreRows, drePrevRows, entries, pendingAhead, commissions, contractsForCommission] = await Promise.all([
       // realizado no mês (pelo paidAt)
       prisma.financeEntry.groupBy({
         by: ["direction"],
@@ -709,6 +711,15 @@ export async function getFinance(orgId: string, year: number, month: number, fil
       prisma.financeEntry.groupBy({
         by: ["category", "direction"],
         where: { organizationId: orgId, paidAt: { gte: mStart, lte: mEnd } },
+        _sum: { amount: true },
+      }),
+      // DRE do mês ANTERIOR (comparativo)
+      prisma.financeEntry.groupBy({
+        by: ["category", "direction"],
+        where: {
+          organizationId: orgId,
+          paidAt: { gte: new Date(year, month - 2, 1), lte: new Date(year, month - 1, 0, 23, 59, 59) },
+        },
         _sum: { amount: true },
       }),
       // extrato: janela definida pelo KPI clicado (padrão: vencimento no mês)
@@ -756,6 +767,12 @@ export async function getFinance(orgId: string, year: number, month: number, fil
           contract: { select: { totalAmount: true, proposal: { select: { property: { select: { title: true } } } } } },
         },
       }),
+      // contratos recentes (para lançar nova comissão / split de co-corretagem)
+      prisma.contract.findMany({
+        where: { organizationId: orgId, status: { notIn: ["CANCELED"] } },
+        orderBy: { createdAt: "desc" }, take: 60,
+        select: { id: true, status: true, totalAmount: true, proposal: { select: { property: { select: { title: true } } } } },
+      }),
     ]);
 
     const g = (rows: any[], dir: string) => Number(rows.find((r) => r.direction === dir)?._sum.amount ?? 0);
@@ -799,10 +816,18 @@ export async function getFinance(orgId: string, year: number, month: number, fil
       },
       forecast,
       flow,
-      dre: dreRows.map((r) => ({ category: String(r.category), direction: String(r.direction), total: Number(r._sum.amount ?? 0) }))
-                  .sort((a, b) => (a.direction === b.direction ? b.total - a.total : a.direction === "IN" ? -1 : 1)),
+      dre: dreRows.map((r) => ({
+        category: String(r.category), direction: String(r.direction),
+        total: Number(r._sum.amount ?? 0),
+        prev: Number(drePrevRows.find((p2) => p2.category === r.category && p2.direction === r.direction)?._sum.amount ?? 0),
+      })).sort((a, b) => (a.direction === b.direction ? b.total - a.total : a.direction === "IN" ? -1 : 1)),
+      drePrevResult: (() => {
+        const g2 = (dir: string) => drePrevRows.filter((r) => r.direction === dir).reduce((s2, r) => s2 + Number(r._sum.amount ?? 0), 0);
+        return g2("IN") - g2("OUT");
+      })(),
       entries,
       commissions,
+      contractsForCommission,
     };
   } catch (e) {
     console.error("getFinance:", e);
