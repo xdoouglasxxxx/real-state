@@ -455,34 +455,20 @@ export async function getDashboardIntel(orgId: string, opts: { finance?: boolean
     if (orphanLeads > 0) alerts.push({ icon: "👤", text: `${orphanLeads} lead${orphanLeads > 1 ? "s" : ""} sem corretor responsável — atribua para não esfriar`, href: "/painel/leads" });
     if (staleProps > 0) alerts.push({ icon: "🏠", text: `${staleProps} imóve${staleProps > 1 ? "is" : "l"} há 90+ dias sem nenhuma visita — revise preço, fotos e destaque`, href: "/painel/imoveis" });
 
-    // vencimentos financeiros próximos + aluguéis em atraso (só para quem acessa o Financeiro)
+    // vencimentos financeiros próximos (só para quem acessa o Financeiro)
     if (opts.finance) {
       try {
-        await refreshOverdueRents(orgId);
-        const { brlCompact } = await import("./format");
         const d5 = new Date(Date.now() + 5 * 86400000);
-        const [due, overdueRents] = await Promise.all([
-          prisma.financeEntry.aggregate({
-            where: { organizationId: orgId, paidAt: null, dueDate: { gte: new Date(), lte: d5 } },
-            _count: true, _sum: { amount: true },
-          }),
-          prisma.rentPayment.aggregate({
-            where: { organizationId: orgId, status: "ATRASADO" },
-            _count: true, _sum: { totalBilled: true },
-          }),
-        ]);
+        const due = await prisma.financeEntry.aggregate({
+          where: { organizationId: orgId, paidAt: null, dueDate: { gte: new Date(), lte: d5 } },
+          _count: true, _sum: { amount: true },
+        });
         if (due._count > 0) {
+          const { brlCompact } = await import("./format");
           alerts.push({
             icon: "💸",
             text: `${due._count} lançamento${due._count > 1 ? "s" : ""} vence${due._count > 1 ? "m" : ""} nos próximos 5 dias — ${brlCompact(Number(due._sum.amount ?? 0))}: garanta o caixa`,
             href: "/painel/financeiro",
-          });
-        }
-        if (overdueRents._count > 0) {
-          alerts.push({
-            icon: "🏘️",
-            text: `${overdueRents._count} parcela${overdueRents._count > 1 ? "s" : ""} de aluguel em atraso — ${brlCompact(Number(overdueRents._sum.totalBilled ?? 0))} a receber`,
-            href: "/painel/locacao",
           });
         }
       } catch (e) { console.error("intel finance:", e); }
@@ -543,7 +529,7 @@ export const CLIENT_STAGE: Record<string, { label: string; pct: number }> = {
 /** Tudo que o cliente pode ver, amarrado pelo E-MAIL do contato neste tenant.
  *  SEGURANÇA: nada de anotações internas, autoria, comissões ou dados de outros. */
 export async function getClientPortal(orgId: string, email: string) {
-  const empty = { contacts: [] as any[], journeys: [] as any[], visits: [] as any[], favorites: [] as any[], rental: null as any, ownerRentals: [] as any[] };
+  const empty = { contacts: [] as any[], journeys: [] as any[], visits: [] as any[], favorites: [] as any[] };
   if (!hasDb() || !email) return empty;
   try {
     const contacts = await prisma.contact.findMany({
@@ -598,37 +584,7 @@ export async function getClientPortal(orgId: string, email: string) {
       }),
     ]);
 
-    // Contrato de locação ATIVO do inquilino — nunca adminFee, repasse ou dados do proprietário
-    const rental = await prisma.rentalContract.findFirst({
-      where: { organizationId: orgId, status: "ATIVO", tenant: { email: { equals: email, mode: "insensitive" } } },
-      select: {
-        id: true, type: true, rentValue: true, dueDay: true, guaranteeType: true,
-        startDate: true, endDate: true,
-        property: { select: { title: true, neighborhood: true } },
-        payments: {
-          orderBy: { dueDate: "asc" }, take: 6,
-          select: { referenceMonth: true, dueDate: true, totalBilled: true, status: true },
-        },
-      },
-    });
-
-    // Contratos ATIVOS onde o usuário é o proprietário do imóvel — nunca adminFee nem comissões
-    const ownerRentals = await prisma.rentalContract.findMany({
-      where: { organizationId: orgId, status: "ATIVO", owner: { email: { equals: email, mode: "insensitive" } } },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true, type: true, rentValue: true, dueDay: true,
-        startDate: true, endDate: true,
-        property: { select: { title: true, neighborhood: true } },
-        tenant: { select: { name: true } },
-        payments: {
-          orderBy: { dueDate: "desc" }, take: 6,
-          select: { referenceMonth: true, dueDate: true, rentValue: true, repasseAt: true, status: true },
-        },
-      },
-    });
-
-    return { contacts, journeys: leads, visits, favorites, rental: rental ?? null, ownerRentals };
+    return { contacts, journeys: leads, visits, favorites };
   } catch (e) {
     console.error("getClientPortal:", e);
     return empty;
@@ -702,7 +658,7 @@ export async function getSidebarBadges(orgId: string, agentId?: string | null) {
 
 export const FIN_CATEGORY: Record<string, string> = {
   COMISSAO_RECEBIDA: "Comissão recebida", ALUGUEL_RECEBIDO: "Aluguel recebido",
-  REPASSE_LOCACAO: "Repasse a proprietário", COMISSAO_PAGA: "Repasse a corretor",
+  REPASSE_LOCACAO: "Repasse a proprietário", MULTA_RESCISORIA: "Multa rescisória", COMISSAO_PAGA: "Repasse a corretor",
   IMPOSTO: "Impostos e taxas", PRO_LABORE: "Pró-labore", DESPESA_FIXA: "Despesa fixa",
   DESPESA_VARIAVEL: "Despesa variável", MARKETING: "Marketing", RECEITA_OUTRA: "Outras receitas",
 };
@@ -715,7 +671,7 @@ export async function getFinance(orgId: string, year: number, month: number, fil
     kpis: { inPaid: 0, outPaid: 0, result: 0, toReceive: 0, toPay: 0, overdue: 0 },
     flow: [] as { label: string; inn: number; out: number }[],
     forecast: [] as { label: string; inn: number; out: number }[],
-    dre: [] as { category: string; direction: string; total: number; prev: number }[],
+    dre: [] as { category: string; direction: string; total: number }[],
     drePrevResult: 0,
     entries: [] as any[],
     commissions: [] as any[],

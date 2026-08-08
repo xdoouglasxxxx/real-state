@@ -11,7 +11,7 @@ export const brlCompact = (v: number | string | null | undefined) => {
 
 export const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Rascunho", FOR_SALE: "À venda", EXCLUSIVE: "Exclusivo",
-  RESERVED: "Reservado", SOLD: "Vendido", ARCHIVED: "Arquivado",
+  RESERVED: "Reservado", SOLD: "Vendido", RENTED: "Alugado", ARCHIVED: "Arquivado",
 };
 export const TYPE_LABEL: Record<string, string> = {
   HOUSE: "Casa", APARTMENT: "Apartamento", LAND: "Terreno", COMMERCIAL: "Comercial", FARM: "Fazenda",

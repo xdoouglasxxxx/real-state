@@ -267,6 +267,7 @@ enum PropStatus {
   EXCLUSIVE
   RESERVED
   SOLD
+  RENTED
   ARCHIVED
 }
 
@@ -559,6 +560,7 @@ model FinanceEntry {
   agentId        String?
   agent          Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
   documents      Document[]
+  rentPayments   RentPayment[]
 }
 
 enum FlowDir {
@@ -570,6 +572,7 @@ enum FinCategory {
   COMISSAO_RECEBIDA
   ALUGUEL_RECEBIDO
   REPASSE_LOCACAO
+  MULTA_RESCISORIA
   COMISSAO_PAGA
   IMPOSTO
   PRO_LABORE
@@ -709,6 +712,7 @@ model RentPayment {
   repasseAt      DateTime?
   repasseValue   Decimal?       @db.Decimal(12, 2)
   financeEntryId String?
+  financeEntry   FinanceEntry?  @relation(fields: [financeEntryId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, status, dueDate])
   @@index([contractId])

@@ -22,7 +22,7 @@ export default async function NovoContratoLocacao({ searchParams }: { searchPara
     try {
       [properties, contacts, agents] = await Promise.all([
         prisma.property.findMany({
-          where: { organizationId: ctx.org.id, status: { notIn: ["ARCHIVED", "SOLD"] } },
+          where: { organizationId: ctx.org.id, status: { notIn: ["ARCHIVED", "SOLD", "RENTED"] } },
           orderBy: { title: "asc" }, take: 300,
           select: { id: true, title: true, price: true, status: true, ownerId: true, owner: { select: { name: true } } },
         }),

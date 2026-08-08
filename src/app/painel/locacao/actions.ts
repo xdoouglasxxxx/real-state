@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireManagerUp } from "@/lib/perm";
+import { requireAdmin } from "@/lib/perm";
 
 const rethrowRedirect = (e: unknown) => {
   if (e && typeof e === "object" && "digest" in e && String((e as any).digest).startsWith("NEXT_REDIRECT")) throw e;
@@ -98,6 +98,18 @@ export async function createRentalContract(formData: FormData) {
       }),
     });
 
+    // Imóvel sai da vitrine de venda: FOR_SALE vira RENTED (com rastro).
+    // EXCLUSIVE/RESERVED (venda ativa confirmada via checkbox) mantém o status de venda.
+    if (property!.status === "FOR_SALE") {
+      await prisma.property.update({ where: { id: property!.id }, data: { status: "RENTED" } });
+      await prisma.propertyEvent.create({
+        data: {
+          propertyId: property!.id, type: "status_change",
+          payload: { from: "FOR_SALE", to: "RENTED", by: createdBy, note: "Contrato de locação ativado" },
+        },
+      });
+    }
+
     // Taxa de setup entra no financeiro como receita prevista
     if (setupFee > 0) {
       await prisma.financeEntry.create({
@@ -117,10 +129,9 @@ export async function createRentalContract(formData: FormData) {
   }
 }
 
-/** Inquilino pagou: entrada no caixa (aluguel + encargos) e libera o repasse.
- *  Atomic gate via updateMany — dois cliques simultâneos não geram lançamento duplo. */
+/** Inquilino pagou: entrada no caixa (aluguel + taxas) e libera o repasse. */
 export async function markRentPaid(formData: FormData) {
-  const ctx = await requireManagerUp();
+  const ctx = await requireAdmin();
   const id = String(formData.get("id") ?? "");
   let contractId = "";
   try {
@@ -131,36 +142,18 @@ export async function markRentPaid(formData: FormData) {
     if (pay) {
       contractId = pay.contract.id;
       const now = new Date();
-
-      // Encargos de atraso: multa 2% + juros 1%/mês pro rata die
-      const diasAtraso = pay.status === "ATRASADO"
-        ? Math.max(0, Math.floor((now.getTime() - new Date(pay.dueDate).getTime()) / 86400000))
-        : 0;
-      const base = Number(pay.totalBilled);
-      const encargos = diasAtraso > 0
-        ? Math.round((base * 0.02 + base * 0.01 * diasAtraso / 30) * 100) / 100
-        : 0;
-      const amount = base + encargos;
-      const descSuffix = encargos > 0
-        ? ` + encargos de atraso (R$ ${encargos.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
-        : "";
-
-      // Atomic gate: apenas quem atualiza (count===1) cria a entrada financeira
-      const gate = await prisma.rentPayment.updateMany({
-        where: { id: pay.id, organizationId: ctx.org.id, status: { in: ["PREVISTO", "ATRASADO"] } },
-        data: { status: "PAGO", paidAt: now },
+      const fin = await prisma.financeEntry.create({
+        data: {
+          organizationId: ctx.org.id, direction: "IN", category: "ALUGUEL_RECEBIDO",
+          description: `Aluguel ${pay.referenceMonth} — ${pay.contract.property.title} (${pay.contract.tenant.name})`,
+          amount: pay.totalBilled, dueDate: pay.dueDate, paidAt: now,
+          createdBy: ctx.master ? "Master (plataforma)" : ctx.email,
+        },
       });
-      if (gate.count === 1) {
-        const fin = await prisma.financeEntry.create({
-          data: {
-            organizationId: ctx.org.id, direction: "IN", category: "ALUGUEL_RECEBIDO",
-            description: `Aluguel ${pay.referenceMonth} — ${pay.contract.property.title} (${pay.contract.tenant.name})${descSuffix}`,
-            amount, dueDate: pay.dueDate, paidAt: now,
-            createdBy: ctx.master ? "Master (plataforma)" : ctx.email,
-          },
-        });
-        await prisma.rentPayment.update({ where: { id: pay.id }, data: { financeEntryId: fin.id } });
-      }
+      await prisma.rentPayment.update({
+        where: { id: pay.id },
+        data: { status: "PAGO", paidAt: now, financeEntryId: fin.id },
+      });
     }
   } catch (e) { console.error("markRentPaid:", e); }
   revalidatePath("/painel/locacao");
@@ -168,8 +161,7 @@ export async function markRentPaid(formData: FormData) {
   redirect("/painel/locacao");
 }
 
-/** Repasse ao proprietário: saída no caixa (aluguel − taxa adm). NUNCA antes do pagamento.
- *  Atomic gate via updateMany — dois cliques não geram repasse duplo. */
+/** Repasse ao proprietário: saída no caixa (aluguel − taxa adm). NUNCA antes do pagamento. */
 export async function transferRent(formData: FormData) {
   const ctx = await requireAdmin();
   const id = String(formData.get("id") ?? "");
@@ -183,22 +175,15 @@ export async function transferRent(formData: FormData) {
       contractId = pay.contract.id;
       const now = new Date();
       const repasse = Number(pay.rentValue) - Number(pay.adminFee);
-
-      // Atomic gate: apenas quem seta repasseAt (count===1) cria a saída financeira
-      const gate = await prisma.rentPayment.updateMany({
-        where: { id: pay.id, organizationId: ctx.org.id, status: "PAGO", repasseAt: null },
-        data: { repasseAt: now, repasseValue: repasse },
+      await prisma.financeEntry.create({
+        data: {
+          organizationId: ctx.org.id, direction: "OUT", category: "REPASSE_LOCACAO",
+          description: `Repasse ${pay.referenceMonth} — ${pay.contract.owner.name} (${pay.contract.property.title})`,
+          amount: repasse, dueDate: now, paidAt: now,
+          createdBy: ctx.master ? "Master (plataforma)" : ctx.email,
+        },
       });
-      if (gate.count === 1) {
-        await prisma.financeEntry.create({
-          data: {
-            organizationId: ctx.org.id, direction: "OUT", category: "REPASSE_LOCACAO",
-            description: `Repasse ${pay.referenceMonth} — ${pay.contract.owner.name} (${pay.contract.property.title})`,
-            amount: repasse, dueDate: now, paidAt: now,
-            createdBy: ctx.master ? "Master (plataforma)" : ctx.email,
-          },
-        });
-      }
+      await prisma.rentPayment.update({ where: { id: pay.id }, data: { repasseAt: now, repasseValue: repasse } });
     }
   } catch (e) { console.error("transferRent:", e); }
   revalidatePath("/painel/locacao");
@@ -211,11 +196,15 @@ export async function closeRentalContract(formData: FormData) {
   const ctx = await requireAdmin();
   const id = String(formData.get("id") ?? "");
   const kind = formData.get("kind") === "RESCINDIDO" ? "RESCINDIDO" : "ENCERRADO";
+  let multa = 0;
   try {
     const contract = await prisma.rentalContract.findFirst({
-      where: { id, organizationId: ctx.org.id, status: "ATIVO" }, select: { id: true },
+      where: { id, organizationId: ctx.org.id, status: "ATIVO" },
+      include: { property: { select: { id: true, status: true, title: true } } },
     });
     if (contract) {
+      const by = ctx.master ? "Master (plataforma)" : ctx.email;
+
       await prisma.$transaction([
         prisma.rentalContract.update({ where: { id: contract.id }, data: { status: kind as any } }),
         prisma.rentPayment.updateMany({
@@ -223,8 +212,40 @@ export async function closeRentalContract(formData: FormData) {
           data: { status: "CANCELADO" },
         }),
       ]);
+
+      // Multa rescisória proporcional (Lei 8.245, art. 4º — praxe: 3 aluguéis × meses restantes/total)
+      if (kind === "RESCINDIDO") {
+        const monthsOf = (d: Date) => d.getFullYear() * 12 + d.getMonth();
+        const total = Math.max(1, monthsOf(new Date(contract.endDate)) - monthsOf(new Date(contract.startDate)));
+        const remaining = Math.min(total, Math.max(0, monthsOf(new Date(contract.endDate)) - monthsOf(new Date())));
+        multa = Math.round(3 * Number(contract.rentValue) * (remaining / total) * 100) / 100;
+        if (multa > 0) {
+          await prisma.financeEntry.create({
+            data: {
+              organizationId: ctx.org.id, direction: "IN", category: "MULTA_RESCISORIA",
+              description: `Multa rescisória — ${contract.property.title} (${remaining}/${total} meses restantes)`,
+              amount: multa, dueDate: new Date(), createdBy: by,
+            },
+          });
+        }
+      }
+
+      // Imóvel volta à vitrine se estava marcado como alugado
+      if (contract.property.status === "RENTED") {
+        await prisma.property.update({ where: { id: contract.property.id }, data: { status: "FOR_SALE" } });
+        await prisma.propertyEvent.create({
+          data: {
+            propertyId: contract.property.id, type: "status_change",
+            payload: { from: "RENTED", to: "FOR_SALE", by, note: `Contrato de locação ${kind === "RESCINDIDO" ? "rescindido" : "encerrado"}` },
+          },
+        });
+      }
     }
-  } catch (e) { console.error("closeRentalContract:", e); }
+  } catch (e) {
+    rethrowRedirect(e);
+    console.error("closeRentalContract:", e);
+  }
   revalidatePath("/painel/locacao");
-  redirect(`/painel/locacao/${id}?encerrado=1`);
+  revalidatePath("/painel/imoveis");
+  redirect(`/painel/locacao/${id}?encerrado=1${multa > 0 ? `&multa=${multa}` : ""}`);
 }
