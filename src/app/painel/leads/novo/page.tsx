@@ -53,7 +53,14 @@ export default async function NovoLead({ searchParams }: { searchParams: { erro?
                 {properties.map((p: any) => <option key={p.id} value={p.id}>{p.title}</option>)}
               </select>
             </label>
-            <label className="span4">O que procura
+            <label>Perfil do contato
+              <select name="contactKind" defaultValue="BUYER">
+                <option value="BUYER">Comprador</option>
+                <option value="OWNER">Proprietário</option>
+                <option value="BOTH">Comprador e Proprietário</option>
+              </select>
+            </label>
+            <label className="span3">O que procura
               <input name="interest" placeholder="Ex.: apartamento até 900 mil nos Jardins" />
             </label>
           </div>

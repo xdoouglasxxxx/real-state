@@ -93,9 +93,17 @@ export async function createManualLead(formData: FormData) {
       rawProperty ? prisma.property.findFirst({ where: { id: rawProperty, organizationId: ctx.org.id }, select: { id: true } }) : null,
     ]);
 
+    // L3: kind vem do campo contactKind do form; default BUYER se omitido/inválido.
+    const VALID_KINDS = ["BUYER", "OWNER", "BOTH"] as const;
+    type ContactKind = typeof VALID_KINDS[number];
+    const rawKind = String(formData.get("contactKind") ?? "");
+    const contactKind: ContactKind = (VALID_KINDS as readonly string[]).includes(rawKind)
+      ? (rawKind as ContactKind)
+      : "BUYER";
+
     const existing = await prisma.contact.findFirst({ where: { organizationId: ctx.org.id, phone } });
     const contact = existing ?? (await prisma.contact.create({
-      data: { organizationId: ctx.org.id, name, phone, kind: "BUYER" },
+      data: { organizationId: ctx.org.id, name, phone, kind: contactKind },
     }));
     const lead = await prisma.lead.create({
       data: {

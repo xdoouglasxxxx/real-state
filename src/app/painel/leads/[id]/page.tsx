@@ -66,7 +66,15 @@ export default async function LeadFicha({ params, searchParams }: { params: { id
             <p><strong>Origem:</strong> {SOURCE_LABEL[lead.source] ?? lead.source}</p>
             <p><strong>Interesse:</strong> {lead.interest ?? "—"}</p>
             <p><strong>Imóvel:</strong> {lead.property ? (
-              <Link href={`/painel/imoveis/${lead.property.id}`} style={{ color: "var(--brass)" }}>{lead.property.title}</Link>
+              <>
+                <Link href={`/painel/imoveis/${lead.property.id}`} style={{ color: "var(--brass)" }}>{lead.property.title}</Link>
+                {lead.property.status === "SOLD" && (
+                  <span className="pill" style={{ marginLeft: ".4rem", fontSize: ".75rem" }}>Vendido — usar como referência de perfil</span>
+                )}
+                {lead.property.status === "RESERVED" && (
+                  <span className="pill" style={{ marginLeft: ".4rem", fontSize: ".75rem" }}>Reservado — usar como referência de perfil</span>
+                )}
+              </>
             ) : "—"}</p>
             <p><strong>Criado em:</strong> {new Date(lead.createdAt).toLocaleString("pt-BR")}</p>
             <div style={{ display: "flex", gap: ".7rem", flexWrap: "wrap", marginTop: ".8rem" }}>

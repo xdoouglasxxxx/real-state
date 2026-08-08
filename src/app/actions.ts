@@ -12,7 +12,7 @@ import { pickAgentRoundRobin } from "@/lib/assign";
  */
 async function createLead(opts: {
   name: string; phone: string; message?: string;
-  propertyId?: string | null; kind: "visit" | "sell";
+  propertyId?: string | null; wantSimilar?: boolean; kind: "visit" | "sell";
   redirectTo: string;
 }) {
   const org = await getTenant();
@@ -33,7 +33,22 @@ async function createLead(opts: {
           },
         }));
 
-      const chosen = await pickAgentRoundRobin(org.id).catch(() => null);
+      // L1: verificar status do imóvel antes de criar o lead.
+      let propertySoldNote: string | null = null;
+      if (opts.propertyId) {
+        const prop = await prisma.property.findFirst({
+          where: { id: opts.propertyId, organizationId: org.id },
+          select: { status: true },
+        });
+        if (prop?.status === "SOLD" || prop?.status === "RESERVED") {
+          const statusLabel = prop.status === "SOLD" ? "vendido" : "reservado";
+          propertySoldNote = `⚠ Imóvel já estava ${statusLabel} no momento do contato — oferecer similares`;
+          if (opts.wantSimilar) propertySoldNote += " · cliente aceita imóveis similares";
+        }
+      }
+
+      // L2: passar propertyId para priorizar corretor do imóvel; fallback no rodízio.
+      const chosen = await pickAgentRoundRobin(org.id, opts.propertyId).catch(() => null);
       const lead = await prisma.lead.create({
         data: {
           organizationId: org.id,
@@ -48,9 +63,17 @@ async function createLead(opts: {
       await prisma.activity.create({
         data: { leadId: lead.id, type: "FORM_SUBMIT", payload: { kind: opts.kind, message: opts.message ?? "" } },
       });
-      if (chosen) {
+      if (propertySoldNote) {
         await prisma.activity.create({
-          data: { leadId: lead.id, type: "NOTE", payload: { note: `Distribuído automaticamente para ${chosen.name} (rodízio)` } },
+          data: { leadId: lead.id, type: "NOTE", payload: { note: propertySoldNote } },
+        });
+      }
+      if (chosen) {
+        const assignNote = chosen.fromProperty
+          ? `Lead atribuído a ${chosen.name} — corretor responsável pelo imóvel`
+          : `Distribuído automaticamente para ${chosen.name} (rodízio)`;
+        await prisma.activity.create({
+          data: { leadId: lead.id, type: "NOTE", payload: { note: assignNote } },
         });
       }
       await notifyNewLead({
@@ -73,7 +96,7 @@ export async function submitVisitInquiry(formData: FormData) {
   // M2: slug vem do FormData — sanitizar para [a-z0-9-] antes de usar em redirect.
   const slug = String(formData.get("slug") ?? "").replace(/[^a-z0-9-]/g, "").slice(0, 80);
   if (!name || !phone) redirect(`/imovel/${slug}?erro=1`);
-  await createLead({ name, phone, message, propertyId, kind: "visit", redirectTo: `/imovel/${slug}?enviado=1` });
+  await createLead({ name, phone, message, propertyId, wantSimilar, kind: "visit", redirectTo: `/imovel/${slug}?enviado=1` });
 }
 
 export async function submitSellInquiry(formData: FormData) {
