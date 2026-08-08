@@ -12,3 +12,5 @@ dist
 # diversos
 *.log
 .DS_Store
+
+tsconfig.tsbuildinfo
