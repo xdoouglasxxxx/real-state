@@ -6,6 +6,10 @@ export default function Termos() {
       <div className="prose">
         <p>As informações de imóveis exibidas neste site têm caráter informativo e podem ser alteradas sem aviso prévio. Preços, disponibilidade e características devem ser confirmados com a equipe comercial.</p>
         <p>O envio de formulários não constitui reserva, proposta ou vínculo contratual.</p>
+
+        <h2>Responsabilidade pela corretagem</h2>
+        <p>A plataforma fornece exclusivamente software de gestão imobiliária; não exerce corretagem nem intermediação imobiliária. O cumprimento da Lei 6.530/78 e das normas COFECI/CRECI é responsabilidade da imobiliária licenciada que utiliza este sistema.</p>
+
         <p><em>Este texto é um modelo. Revise com seu jurídico antes de publicar.</em></p>
       </div>
     </main>

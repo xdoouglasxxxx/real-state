@@ -483,6 +483,15 @@ export async function getDashboardIntel(orgId: string, opts: { finance?: boolean
         alerts.push({ icon: "⚠️", text: `${creciExpired} corretor${creciExpired > 1 ? "es" : ""} com CRECI vencido — regularize antes da próxima transação`, href: "/painel/corretores" });
     } catch (e) { console.error("intel creci:", e); }
 
+    // COAF (compliance Onda 4.5) — contratos com espécie > 30k sem comunicação
+    try {
+      const coafPending = await prisma.contract.count({
+        where: { organizationId: orgId, cashAmount: { gt: 30000 }, coafReportedAt: null, status: { notIn: ["CANCELED"] } },
+      });
+      if (coafPending > 0)
+        alerts.push({ icon: "🚨", text: `${coafPending} contrato${coafPending > 1 ? "s" : ""} com espécie acima de R$ 30 mil pendente${coafPending > 1 ? "s" : ""} de comunicação ao COAF — regularize em Contratos`, href: "/painel/contratos" });
+    } catch (e) { console.error("intel coaf:", e); }
+
     const sources = leads90d
       .map((r) => ({
         source: String(r.source), count: r._count,
