@@ -12,6 +12,11 @@ Vercel (gru1). Dono: Douglas (Windows + PowerShell).
 1. **NUNCA** alterar `prisma/schema.prisma`, criar migrações ou rodar SQL —
    mudanças de banco passam por outro canal (arquivos numerados em `database/`,
    executados manualmente no Supabase). Se um fix exigir coluna nova: PARE e avise.
+   **Exceção de extração:** `prisma/schema.prisma` e `database/*.sql` chegam prontos
+   pelo canal externo (pacotes zip); quando aparecerem como `modified` após uma
+   `Expand-Archive`, são legítimos — valide que o diff corresponde à migração
+   numerada correspondente e commite junto. A proibição é VOCÊ criar ou editar
+   schema/migrações por conta própria.
 2. **NUNCA** adicionar dependências sem aprovação explícita.
 3. **CSS próprio** em `src/app/globals.css` (design system dark-luxury, dourado
    `--brass`). PROIBIDO introduzir Tailwind, Shadcn, lucide ou libs de UI.

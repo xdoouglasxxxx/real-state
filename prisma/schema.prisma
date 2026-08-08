@@ -57,6 +57,7 @@ model Organization {
   documents      Document[]
   rentalContracts RentalContract[]
   rentPayments    RentPayment[]
+  contractTemplates ContractTemplate[]
 }
 
 // Domínio próprio por tenant (ex.: www.maisonestate.com.br)
@@ -723,4 +724,23 @@ model RentPayment {
 
   @@index([organizationId, status, dueDate])
   @@index([contractId])
+}
+
+enum TemplateKind {
+  VENDA
+  LOCACAO
+}
+
+model ContractTemplate {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kind           TemplateKind
+  name           String
+  body           String
+  updatedBy      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, kind])
 }
