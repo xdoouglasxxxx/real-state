@@ -37,14 +37,28 @@ export default async function PropertyPage({ params, searchParams }: Props) {
     name: p.title,
     description: p.description,
     image: p.images,
+    numberOfRooms: p.bedrooms,
+    numberOfBathroomsTotal: p.bathrooms,
+    floorSize: { "@type": "QuantitativeValue", value: p.areaM2, unitCode: "MTK" },
     offers: { "@type": "Offer", price: p.price, priceCurrency: "BRL" },
     address: { "@type": "PostalAddress", addressLocality: p.city, addressRegion: p.state ?? "SP", addressCountry: "BR" },
     ...(p.latitude ? { geo: { "@type": "GeoCoordinates", latitude: p.latitude, longitude: p.longitude } } : {}),
   };
 
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Início", item: "/" },
+      { "@type": "ListItem", position: 2, name: "Imóveis", item: "/imoveis" },
+      { "@type": "ListItem", position: 3, name: p.title, item: `/imovel/${p.slug}` },
+    ],
+  };
+
   return (
     <main className="page">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <Link className="back" href="/imoveis">← Voltar aos imóveis</Link>
 
       <div className="detail-grid">
