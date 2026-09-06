@@ -709,19 +709,38 @@ export async function getAgentCopilot(orgId: string, agentId: string) {
 
 /** Badges do menu lateral: pendências que puxam ação (escopadas por papel). */
 export async function getSidebarBadges(orgId: string, agentId?: string | null) {
-  const empty = { coldLeads: 0, visitsToday: 0 };
+  const empty = { coldLeads: 0, visitsToday: 0, tasksDue: 0 };
   if (!hasDb()) return empty;
   try {
     const d72h = new Date(Date.now() - 72 * 3600000);
     const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(); dayEnd.setHours(23, 59, 59, 999);
     const scope = agentId ? { agentId } : {};
-    const [coldLeads, visitsToday] = await Promise.all([
+    const [coldLeads, visitsToday, tasksDue] = await Promise.all([
       prisma.lead.count({ where: { organizationId: orgId, ...scope, stage: { in: ["NEW", "CONTACTED"] }, updatedAt: { lt: d72h } } }),
       prisma.visit.count({ where: { organizationId: orgId, ...scope, status: "SCHEDULED", scheduledAt: { gte: dayStart, lte: dayEnd } } }),
+      prisma.task.count({ where: { organizationId: orgId, ...scope, doneAt: null, dueAt: { lte: dayEnd } } }),
     ]);
-    return { coldLeads, visitsToday };
+    return { coldLeads, visitsToday, tasksDue };
   } catch { return empty; }
+}
+
+/** Tarefas pendentes de hoje + atrasadas (follow-up), escopadas por corretor. */
+export async function getTasksDue(orgId: string, agentId?: string | null, take = 10) {
+  if (!hasDb()) return [] as any[];
+  try {
+    const dayEnd = new Date(); dayEnd.setHours(23, 59, 59, 999);
+    return await prisma.task.findMany({
+      where: { organizationId: orgId, ...(agentId ? { agentId } : {}), doneAt: null, dueAt: { lte: dayEnd } },
+      orderBy: { dueAt: "asc" },
+      take,
+      select: {
+        id: true, title: true, dueAt: true,
+        lead: { select: { id: true, contact: { select: { name: true, phone: true } } } },
+        agent: { select: { name: true } },
+      },
+    });
+  } catch (e) { console.error("getTasksDue:", e); return [] as any[]; }
 }
 
 /* ---------- ONDA 4.1 — FINANCEIRO ---------- */

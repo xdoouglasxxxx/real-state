@@ -1,7 +1,42 @@
 import { requirePanel } from "@/lib/perm";
-import { getDashboard, getAgentDashboard, getDashboardIntel, getAgentCopilot, leadTemp } from "@/lib/data";
+import { getDashboard, getAgentDashboard, getDashboardIntel, getAgentCopilot, getTasksDue, leadTemp } from "@/lib/data";
 import Link from "next/link";
 import { brl, brlCompact } from "@/lib/format";
+import { toggleTask } from "./leads/actions";
+
+/** Lista de tarefas do dia/atrasadas — usada no painel do gestor e do corretor. */
+function TasksBox({ tasks }: { tasks: any[] }) {
+  if (tasks.length === 0) return null;
+  return (
+    <section className="ficha-box" style={{ marginBottom: "1.4rem", borderColor: "var(--brass)" }}>
+      <h2>📌 Tarefas de hoje e atrasadas</h2>
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: ".45rem" }}>
+        {tasks.map((t: any) => {
+          const overdue = +new Date(t.dueAt) < Date.now();
+          return (
+            <li key={t.id} style={{ display: "flex", gap: ".5rem", alignItems: "baseline", fontSize: ".92rem" }}>
+              <form action={toggleTask} style={{ display: "inline" }}>
+                <input type="hidden" name="id" value={t.id} />
+                <input type="hidden" name="back" value="painel" />
+                <button type="submit" className="panel-link" style={{ padding: 0 }} title="Concluir tarefa">☐</button>
+              </form>
+              <span>
+                {t.title} —{" "}
+                <Link href={`/painel/leads/${t.lead.id}`} style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>
+                  {t.lead.contact?.name}
+                </Link>
+                <span style={{ color: overdue ? "#e57373" : "var(--stone)", fontSize: ".8rem" }}>
+                  {" "}· {new Date(t.dueAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  {overdue ? " · atrasada" : ""}{t.agent?.name ? ` · ${t.agent.name}` : ""}
+                </span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
 
 export const dynamic = "force-dynamic";
 
@@ -27,11 +62,15 @@ export default async function Dashboard({ searchParams }: { searchParams: { nega
 
   // -------- Portal do Corretor: números só DELE (sem vínculo = zeros, nunca os da imobiliária) --------
   if (ctx.isAgent) {
-    const [d, pilot] = ctx.agentId
-      ? await Promise.all([getAgentDashboard(ctx.org.id, ctx.agentId), getAgentCopilot(ctx.org.id, ctx.agentId)])
+    const [d, pilot, myTasks] = ctx.agentId
+      ? await Promise.all([
+          getAgentDashboard(ctx.org.id, ctx.agentId),
+          getAgentCopilot(ctx.org.id, ctx.agentId),
+          getTasksDue(ctx.org.id, ctx.agentId),
+        ])
       : [{ activeLeads: 0, newLeadsMonth: 0, scheduledVisits: 0, myProperties: 0,
           commissionPending: 0, commissionPaidMonth: 0, meta: 0, realizado: 0, goalPct: 0 },
-         { top: [], cooling: [], coolingCount: 0, hotCommission: 0 }];
+         { top: [], cooling: [], coolingCount: 0, hotCommission: 0 }, [] as any[]];
     const KPIS: [string, string][] = [
       [String(d.activeLeads), "leads ativos comigo"],
       [String(d.newLeadsMonth), "novos leads no mês"],
@@ -47,6 +86,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { nega
         <h1>Meu painel</h1>
         {searchParams.negado && <p className="pform-error">{NEGADO_MSG[searchParams.negado] ?? NEGADO_MSG["1"]}</p>}
         {!ctx.agentId && <p className="pform-error">Seu usuário ainda não está vinculado a um perfil de corretor — peça ao administrador (Usuários → seu cadastro).</p>}
+        <TasksBox tasks={myTasks} />
         <div className="kpis">
           {KPIS.map(([n, l]) => (
             <div className="kpi" key={l}><strong>{n}</strong><span>{l}</span></div>
@@ -112,7 +152,11 @@ export default async function Dashboard({ searchParams }: { searchParams: { nega
   }
 
   // -------- Dashboard 2.0 da imobiliária (admin/gerente) --------
-  const [d, intel] = await Promise.all([getDashboard(ctx.org.id), getDashboardIntel(ctx.org.id, { finance: ctx.isAdmin })]);
+  const [d, intel, tasksDue] = await Promise.all([
+    getDashboard(ctx.org.id),
+    getDashboardIntel(ctx.org.id, { finance: ctx.isAdmin }),
+    getTasksDue(ctx.org.id),
+  ]);
 
   // Projeção da meta pelo ritmo do mês + pipeline ponderado
   const now = new Date();
@@ -130,6 +174,8 @@ export default async function Dashboard({ searchParams }: { searchParams: { nega
     <>
       <h1>Hoje</h1>
       {searchParams.negado && <p className="pform-error">{NEGADO_MSG[searchParams.negado] ?? NEGADO_MSG["1"]}</p>}
+
+      <TasksBox tasks={tasksDue} />
 
       {/* ---- Requer sua atenção hoje ---- */}
       <section className="ficha-box" style={{ marginBottom: "1.4rem", borderColor: intel.alerts.length ? "var(--brass)" : undefined }}>

@@ -38,7 +38,7 @@ export default async function PainelLayout({ children }: { children: React.React
   const isAgent = !session?.master && role === "AGENT";
 
   // Badges de pendência (escopo do corretor quando for AGENT)
-  let badges = { coldLeads: 0, visitsToday: 0 };
+  let badges = { coldLeads: 0, visitsToday: 0, tasksDue: 0 };
   if (process.env.DATABASE_URL) {
     try {
       const agentScope = isAgent && session?.userId
@@ -57,7 +57,7 @@ export default async function PainelLayout({ children }: { children: React.React
         <Link className="logo" href="/painel">{first} <em>{rest.join(" ") || "ESTATE"}</em></Link>
         <span className="panel-slug">{org.slug}.{process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? ""}</span>
 
-        <Link className="panel-link" href="/painel">{isAgent ? "Meu painel" : "Dashboard"}</Link>
+        <Link className="panel-link" href="/painel">{isAgent ? "Meu painel" : "Dashboard"}<Badge n={badges.tasksDue} title="Tarefas de hoje e atrasadas" /></Link>
         <Link className="panel-link" href="/painel/leads">{isAgent ? "Meus leads" : "Leads"}<Badge n={badges.coldLeads} title="Leads esfriando (72h sem contato)" /></Link>
         <Link className="panel-link" href="/painel/agenda">{isAgent ? "Minha agenda" : "Agenda"}<Badge n={badges.visitsToday} title="Visitas hoje" /></Link>
         <Link className="panel-link" href="/painel/imoveis">Imóveis</Link>

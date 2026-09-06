@@ -215,3 +215,71 @@ export async function saveObjections(formData: FormData) {
   revalidatePath(`/painel/leads/${leadId}`);
   redirect(`/painel/leads/${leadId}`);
 }
+
+/* ---------- TAREFAS / FOLLOW-UP (mercado A2) ---------- */
+
+/** Cria a tarefa de próximo contato do lead. Corretor só nos PRÓPRIOS leads. */
+export async function createTask(formData: FormData) {
+  const ctx = await requirePanel();
+  const leadId = String(formData.get("leadId") ?? "");
+  const title = String(formData.get("title") ?? "").trim().slice(0, 120);
+  const dueRaw = String(formData.get("dueAt") ?? "").trim();
+  const dueAt = dueRaw ? new Date(dueRaw) : null;
+  if (!leadId || !title || !dueAt || isNaN(+dueAt)) redirect(`/painel/leads/${leadId}?tarefa=campos`);
+
+  try {
+    const lead = await prisma.lead.findFirst({
+      where: { id: leadId, organizationId: ctx.org.id, ...(ctx.isAgent ? { agentId: ctx.agentId ?? "-" } : {}) },
+      select: { id: true, agentId: true },
+    });
+    if (!lead) redirect("/painel/leads");
+
+    await prisma.task.create({
+      data: {
+        organizationId: ctx.org.id,
+        leadId: lead!.id,
+        agentId: ctx.isAgent ? ctx.agentId : lead!.agentId ?? null,
+        title,
+        dueAt: dueAt!,
+        createdBy: author(ctx),
+      },
+    });
+    await prisma.activity.create({
+      data: { leadId: lead!.id, type: "NOTE", payload: { note: `Tarefa criada: ${title}`, by: author(ctx) } },
+    });
+  } catch (e) {
+    rethrowRedirect(e);
+    console.error("createTask:", e);
+    redirect(`/painel/leads/${leadId}?tarefa=erro`);
+  }
+  revalidatePath(`/painel/leads/${leadId}`);
+  revalidatePath("/painel");
+  redirect(`/painel/leads/${leadId}?tarefa=ok`);
+}
+
+/** Conclui (ou reabre) uma tarefa. Posse escopada por tenant e por corretor. */
+export async function toggleTask(formData: FormData) {
+  const ctx = await requirePanel();
+  const id = String(formData.get("id") ?? "");
+  const back = String(formData.get("back") ?? "") === "painel" ? "/painel" : null;
+  let leadId = "";
+  try {
+    const task = await prisma.task.findFirst({
+      where: { id, organizationId: ctx.org.id, ...(ctx.isAgent ? { agentId: ctx.agentId ?? "-" } : {}) },
+      select: { id: true, leadId: true, doneAt: true },
+    });
+    if (!task) redirect(back ?? "/painel/leads");
+    leadId = task!.leadId;
+    await prisma.task.update({
+      where: { id: task!.id },
+      data: { doneAt: task!.doneAt ? null : new Date() },
+    });
+  } catch (e) {
+    rethrowRedirect(e);
+    console.error("toggleTask:", e);
+  }
+  revalidatePath("/painel");
+  if (back) redirect(back);
+  revalidatePath(`/painel/leads/${leadId}`);
+  redirect(`/painel/leads/${leadId}`);
+}

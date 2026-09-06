@@ -61,6 +61,7 @@ model Organization {
   rentPayments      RentPayment[]
   contractTemplates ContractTemplate[]
   inspections       Inspection[]
+  tasks             Task[]
   financingRates    Json? // taxas por banco p/ simulador (Onda 4.3): [{banco, taxa}]
 }
 
@@ -160,6 +161,7 @@ model Agent {
   goals           Goal[]
   financeEntries  FinanceEntry[]
   rentalContracts RentalContract[]
+  tasks           Task[]
   creciUf         String? // compliance (Onda 4.5)
   creciValidUntil DateTime?
 
@@ -387,6 +389,7 @@ model Lead {
   activities    Activity[]
   visits        Visit[]
   proposals     Proposal[]
+  tasks         Task[]
   lgpdConsentAt DateTime? // LGPD: consentimento no formulário
   lgpdIp        String?
 
@@ -740,6 +743,25 @@ enum InspectionKind {
 enum InspectionStatus {
   RASCUNHO
   CONCLUIDA
+}
+
+// Tarefas / follow-up do CRM (mercado A2): o "próximo contato" do lead
+model Task {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leadId         String
+  lead           Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  agentId        String?
+  agent          Agent?       @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  title          String
+  dueAt          DateTime
+  doneAt         DateTime?
+  createdBy      String?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, dueAt])
+  @@index([leadId])
 }
 
 model RentPayment {

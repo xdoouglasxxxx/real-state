@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requirePanel } from "@/lib/perm";
 import { getLeadDetail, getAgents, leadTemp } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
-import { addLeadNote, assignAgent, upsertClientAccess, saveObjections } from "../actions";
+import { addLeadNote, assignAgent, upsertClientAccess, saveObjections, createTask, toggleTask } from "../actions";
 import { STAGE_LABEL, SOURCE_LABEL } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ const ACT_LABEL: Record<string, string> = {
   EMAIL_SENT: "E-mail enviado", CALL: "Ligação", NOTE: "Anotação", STAGE_CHANGE: "Mudou de estágio",
 };
 
-export default async function LeadFicha({ params, searchParams }: { params: { id: string }; searchParams: { cliente?: string } }) {
+export default async function LeadFicha({ params, searchParams }: { params: { id: string }; searchParams: { cliente?: string; tarefa?: string } }) {
   const ctx = await requirePanel();
   const org = ctx.org;
   // Corretor só abre a ficha dos PRÓPRIOS leads (agentId "-" nunca casa = nega)
@@ -23,6 +23,17 @@ export default async function LeadFicha({ params, searchParams }: { params: { id
     getAgents(org.id),
   ]);
   if (!lead) notFound();
+
+  // Tarefas / próximo contato deste lead (abertas primeiro, mais urgente no topo)
+  let tasks: any[] = [];
+  try {
+    tasks = await prisma.task.findMany({
+      where: { organizationId: org.id, leadId: lead.id },
+      orderBy: [{ doneAt: "asc" }, { dueAt: "asc" }],
+      take: 12,
+      select: { id: true, title: true, dueAt: true, doneAt: true, agent: { select: { name: true } } },
+    });
+  } catch {}
 
   // Portal do Cliente: já existe acesso para o e-mail deste contato?
   let clientAccess: { isActive: boolean } | null = null;
@@ -97,6 +108,50 @@ export default async function LeadFicha({ params, searchParams }: { params: { id
                 <button className="btn-outline" type="submit">Salvar corretor</button>
               </form>
             )}
+          </section>
+
+          <section className="ficha-box">
+            <h2>📌 Próximo contato</h2>
+            {searchParams.tarefa === "ok" && <p className="ok" style={{ marginBottom: ".6rem" }}>✔ Tarefa criada.</p>}
+            {searchParams.tarefa && searchParams.tarefa !== "ok" && (
+              <p className="pform-error" style={{ marginBottom: ".6rem" }}>
+                {searchParams.tarefa === "campos" ? "Preencha o título e a data da tarefa." : "Erro ao salvar a tarefa — tente de novo."}
+              </p>
+            )}
+            {tasks.length > 0 && (
+              <ul style={{ listStyle: "none", margin: "0 0 .8rem", padding: 0, display: "grid", gap: ".4rem" }}>
+                {tasks.map((t) => {
+                  const overdue = !t.doneAt && +new Date(t.dueAt) < Date.now();
+                  return (
+                    <li key={t.id} style={{ display: "flex", gap: ".5rem", alignItems: "baseline", fontSize: ".9rem" }}>
+                      <form action={toggleTask} style={{ display: "inline" }}>
+                        <input type="hidden" name="id" value={t.id} />
+                        <button type="submit" className="panel-link" style={{ padding: 0 }}
+                          title={t.doneAt ? "Reabrir tarefa" : "Concluir tarefa"}>
+                          {t.doneAt ? "☑" : "☐"}
+                        </button>
+                      </form>
+                      <span style={t.doneAt ? { textDecoration: "line-through", color: "var(--stone)" } : undefined}>
+                        {t.title}
+                        <span style={{ color: overdue ? "#e57373" : "var(--stone)", fontSize: ".8rem" }}>
+                          {" "}· {new Date(t.dueAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                          {overdue ? " · atrasada" : ""}{t.agent?.name ? ` · ${t.agent.name}` : ""}
+                        </span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <form action={createTask} className="form">
+              <input type="hidden" name="leadId" value={lead.id} />
+              <input name="title" maxLength={120} placeholder="Ex.: ligar sobre a contraproposta" required />
+              <input name="dueAt" type="datetime-local" required />
+              <button className="btn-outline" type="submit">Criar tarefa</button>
+            </form>
+            <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".5rem" }}>
+              Aparece no dashboard como pendência do dia — o lead nunca fica sem próximo passo.
+            </p>
           </section>
 
           {ctx.isManagerUp && (
