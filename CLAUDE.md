@@ -19,9 +19,15 @@ Vercel (gru1). Dono: Douglas (Windows + PowerShell).
    schema/migrações por conta própria.
 2. **NUNCA** adicionar dependências sem aprovação explícita.
 3. **CSS próprio** em `src/app/globals.css` (design system dark-luxury, dourado
-   `--brass`). PROIBIDO introduzir Tailwind, Shadcn, lucide ou libs de UI.
+   `--brass`). O Tailwind está tecnicamente ativo no build (diretivas no
+   globals.css + tailwind.config.ts, legado da fundação), mas é PROIBIDO usar
+   classes utilitárias dele em código (`bg-[#...]`, `flex`, `p-4`...) — todo
+   estilo sai das classes do design system + `style` inline pontual. Também
+   PROIBIDO adicionar Shadcn, lucide ou qualquer lib de UI. Remover o Tailwind
+   do build é um desejo futuro: só com build verde na Vercel validando.
    Classes existentes: `.kpi(s) .ficha-box .pform .pgrid(.span2/.span3/.span4)
-   .pill .table .meta-bar .btn-solid .btn-outline .pform-error .ok .nav-badge`.
+   .pill .table .meta-bar .btn-solid .btn-outline .pform-error .ok .nav-badge
+   .panel-link .timeline .tl-when`.
 4. **Push é manual do Douglas** — pare após commitar. Commits temáticos, mensagem
    longa via arquivo (`Write` + `git commit -F arquivo` + `Remove-Item arquivo`).
 5. Terminal é **PowerShell**: sem `&&` encadeando (use `;`), sem heredoc bash,
@@ -46,7 +52,9 @@ Vercel (gru1). Dono: Douglas (Windows + PowerShell).
   posse antes: `findFirst({ where: { id, organizationId: ctx.org.id } })`.
 - Guardas de papel: `requirePanel` / `requireManagerUp` / `requireAdmin`
   (`src/lib/perm.ts`). Corretor (`ctx.isAgent`) só enxerga o que tem
-  `agentId: ctx.agentId`.
+  `agentId: ctx.agentId`. Portal do Cliente (CLIENT/OWNER): `requireClientPortal`
+  — resolve o Contact por `session.contactId` (fallback e-mail) e as queries
+  usam `contactId: { in: ctx.contactIds }` + escopo de org.
 - Autoria nas timelines: payload `by` = `ctx.master ? "Master (plataforma)" :
   ctx.email` (padrão em leads, financeiro, documentos, PropertyEvent).
 - Portal do Cliente NUNCA recebe: anotações internas, autoria, comissões.
