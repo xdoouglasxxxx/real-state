@@ -98,6 +98,60 @@ export async function requireAdmin(): Promise<PanelContext> {
   return ctx;
 }
 
+/* ---------- PORTAL DO CLIENTE (CLIENT / OWNER) ---------- */
+
+export type ClientPortalContext = {
+  org: Tenant;
+  email: string;
+  role: "CLIENT" | "OWNER";
+  /** Contato preferencial (vínculo User.contactId da sessão), quando existe */
+  contact: { id: string; name: string } | null;
+  /** Todos os contatos do cliente neste tenant (preferencial primeiro) */
+  contactIds: string[];
+};
+
+/** Exige login de CLIENT/OWNER neste tenant e resolve o(s) Contact(s).
+ *  Preferência: contactId da sessão (validado no tenant); fallback: e-mail
+ *  (sessões antigas e contatos duplicados com o mesmo e-mail). */
+export async function requireClientPortal(): Promise<ClientPortalContext> {
+  const org = await getTenant();
+  const session = getSession();
+  if (!session || session.orgId !== org.id) redirect("/login");
+  if (session!.role !== "CLIENT" && session!.role !== "OWNER") redirect("/painel");
+
+  let contact: { id: string; name: string } | null = null;
+  let byEmail: { id: string; name: string }[] = [];
+  if (process.env.DATABASE_URL) {
+    try {
+      [contact, byEmail] = await Promise.all([
+        session!.contactId
+          ? prisma.contact.findFirst({
+              where: { id: session!.contactId, organizationId: org.id },
+              select: { id: true, name: true },
+            })
+          : Promise.resolve(null),
+        prisma.contact.findMany({
+          where: { organizationId: org.id, email: { equals: session!.email, mode: "insensitive" } },
+          select: { id: true, name: true },
+        }),
+      ]);
+    } catch (e) { console.error("requireClientPortal(contact):", e); }
+  }
+
+  const contactIds = [
+    ...(contact ? [contact.id] : []),
+    ...byEmail.map((c) => c.id).filter((id) => id !== contact?.id),
+  ];
+
+  return {
+    org,
+    email: session!.email,
+    role: session!.role as "CLIENT" | "OWNER",
+    contact: contact ?? byEmail[0] ?? null,
+    contactIds,
+  };
+}
+
 export const ROLE_LABEL: Record<string, string> = {
   ORG_ADMIN: "Administrador",
   MANAGER: "Gerente",

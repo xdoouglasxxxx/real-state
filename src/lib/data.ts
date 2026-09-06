@@ -544,17 +544,39 @@ export const CLIENT_STAGE: Record<string, { label: string; pct: number }> = {
   LOST: { label: "Negociação encerrada", pct: 100 },
 };
 
-/** Tudo que o cliente pode ver, amarrado pelo E-MAIL do contato neste tenant.
+/** Rótulos amigáveis compartilhados pelo portal do cliente (home + páginas). */
+export const VISIT_LABEL: Record<string, string> = {
+  SCHEDULED: "Agendada", DONE: "Realizada", NO_SHOW: "Não realizada", CANCELED: "Cancelada",
+};
+export const PROPOSAL_LABEL: Record<string, string> = {
+  SENT: "Enviada — em análise", COUNTER: "Contraproposta recebida",
+  ACCEPTED: "Aceita ✔", REJECTED: "Não aceita", EXPIRED: "Expirada",
+};
+export const CONTRACT_LABEL: Record<string, string> = {
+  AWAITING_SIGNATURE: "Aguardando sua assinatura", SIGNED: "Assinado — em andamento",
+  FINANCING: "Financiamento em processamento", CLOSED: "Concluído 🎉", CANCELED: "Cancelado",
+};
+
+/** Tudo que o cliente pode ver, amarrado ao Contact dele neste tenant —
+ *  preferência ao vínculo contactId da sessão, e-mail como fallback/complemento.
  *  SEGURANÇA: nada de anotações internas, autoria, comissões ou dados de outros. */
-export async function getClientPortal(orgId: string, email: string) {
+export async function getClientPortal(orgId: string, email: string, preferredContactId?: string | null) {
   const empty = { contacts: [] as any[], journeys: [] as any[], visits: [] as any[], favorites: [] as any[], rental: null as any, ownerRentals: [] as any[] };
-  if (!hasDb() || !email) return empty;
+  if (!hasDb() || (!email && !preferredContactId)) return empty;
   try {
     const contacts = await prisma.contact.findMany({
-      where: { organizationId: orgId, email: { equals: email, mode: "insensitive" } },
+      where: {
+        organizationId: orgId,
+        OR: [
+          ...(preferredContactId ? [{ id: preferredContactId }] : []),
+          ...(email ? [{ email: { equals: email, mode: "insensitive" as const } }] : []),
+        ],
+      },
       select: { id: true, name: true },
     });
     if (contacts.length === 0) return empty;
+    // preferencial primeiro: saudação e desempates usam contacts[0]
+    contacts.sort((a, b) => (a.id === preferredContactId ? -1 : b.id === preferredContactId ? 1 : 0));
     const contactIds = contacts.map((c) => c.id);
 
     const [leads, visits, favorites] = await Promise.all([
@@ -604,7 +626,7 @@ export async function getClientPortal(orgId: string, email: string) {
 
     // Contrato de locação ATIVO do inquilino — nunca adminFee, repasse ou dados do proprietário
     const rental = await prisma.rentalContract.findFirst({
-      where: { organizationId: orgId, status: "ATIVO", tenant: { email: { equals: email, mode: "insensitive" } } },
+      where: { organizationId: orgId, status: "ATIVO", tenant: { id: { in: contactIds } } },
       select: {
         id: true, type: true, rentValue: true, dueDay: true, guaranteeType: true,
         startDate: true, endDate: true,
@@ -618,7 +640,7 @@ export async function getClientPortal(orgId: string, email: string) {
 
     // Contratos ATIVOS onde o usuário é o proprietário do imóvel — nunca adminFee nem comissões
     const ownerRentals = await prisma.rentalContract.findMany({
-      where: { organizationId: orgId, status: "ATIVO", owner: { email: { equals: email, mode: "insensitive" } } },
+      where: { organizationId: orgId, status: "ATIVO", owner: { id: { in: contactIds } } },
       orderBy: { createdAt: "desc" },
       select: {
         id: true, type: true, rentValue: true, dueDay: true,

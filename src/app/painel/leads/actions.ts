@@ -161,13 +161,25 @@ export async function upsertClientAccess(formData: FormData) {
       // e-mail já pertence a alguém do time — não pode virar cliente
       redirect(`/painel/leads/${leadId}?cliente=conflito`);
     }
+    // Vínculo User↔Contact (contactId é UNIQUE): só liga se o contato ainda não pertence a outro usuário
+    const contactTaken = await prisma.user.findFirst({
+      where: { contactId: lead!.contact.id, ...(existing ? { id: { not: existing.id } } : {}) },
+      select: { id: true },
+    });
     if (existing) {
-      await prisma.user.update({ where: { id: existing!.id }, data: { passHash: hashPassword(pass), isActive: true } });
+      await prisma.user.update({
+        where: { id: existing!.id },
+        data: {
+          passHash: hashPassword(pass), isActive: true,
+          ...(existing!.contactId || contactTaken ? {} : { contactId: lead!.contact.id }),
+        },
+      });
     } else {
       await prisma.user.create({
         data: {
           organizationId: ctx.org.id, email: email!, name: lead!.contact.name,
           role: "CLIENT", passHash: hashPassword(pass),
+          ...(contactTaken ? {} : { contactId: lead!.contact.id }),
         },
       });
     }

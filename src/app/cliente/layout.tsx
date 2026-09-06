@@ -1,18 +1,12 @@
-import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { getTenant } from "@/lib/tenant";
-import { getSession } from "@/lib/auth";
+import { requireClientPortal } from "@/lib/perm";
 import { logout } from "@/app/auth-actions";
 
 export const metadata: Metadata = { title: "Área do cliente", robots: { index: false, follow: false } };
 
 export default async function ClienteLayout({ children }: { children: React.ReactNode }) {
-  const org = await getTenant();
-  const session = getSession();
-
   // Clientes e proprietários deste tenant entram aqui; time da imobiliária usa o /painel
-  if (!session || session.orgId !== org.id) redirect("/login");
-  if (session.role !== "CLIENT" && session.role !== "OWNER") redirect("/painel");
+  const { org } = await requireClientPortal();
 
   const [first, ...rest] = org.name.toUpperCase().split(" ");
   return (

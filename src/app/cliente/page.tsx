@@ -1,21 +1,9 @@
 import { getTenant } from "@/lib/tenant";
 import { getSession } from "@/lib/auth";
-import { getClientPortal, CLIENT_STAGE, RENTAL_TYPE, GUARANTEE_LABEL } from "@/lib/data";
+import { getClientPortal, CLIENT_STAGE, RENTAL_TYPE, GUARANTEE_LABEL, VISIT_LABEL, PROPOSAL_LABEL, CONTRACT_LABEL } from "@/lib/data";
 import { brl } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
-
-const VISIT_LABEL: Record<string, string> = {
-  SCHEDULED: "Agendada", DONE: "Realizada", NO_SHOW: "Não realizada", CANCELED: "Cancelada",
-};
-const PROPOSAL_LABEL: Record<string, string> = {
-  SENT: "Enviada — em análise", COUNTER: "Contraproposta recebida",
-  ACCEPTED: "Aceita ✔", REJECTED: "Não aceita", EXPIRED: "Expirada",
-};
-const CONTRACT_LABEL: Record<string, string> = {
-  AWAITING_SIGNATURE: "Aguardando sua assinatura", SIGNED: "Assinado — em andamento",
-  FINANCING: "Financiamento em processamento", CLOSED: "Concluído 🎉", CANCELED: "Cancelado",
-};
 
 const fmtDT = (x: Date | string) =>
   new Date(x).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -25,7 +13,7 @@ const fmtD = (x: Date | string) =>
 export default async function ClientePortal() {
   const org = await getTenant();
   const session = getSession();
-  const data = await getClientPortal(org.id, session?.email ?? "");
+  const data = await getClientPortal(org.id, session?.email ?? "", session?.contactId ?? null);
   const name = data.contacts[0]?.name?.split(" ")[0];
 
   const upcoming = data.visits.filter((v: any) => v.status === "SCHEDULED" && +new Date(v.scheduledAt) >= Date.now() - 3600000);
@@ -252,7 +240,7 @@ export default async function ClientePortal() {
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: ".4rem" }}>
             {data.favorites.map((f: any) => (
               <li key={f.id} style={{ fontSize: ".92rem" }}>
-                ♥ <a href={`/imoveis/${f.property.slug}`} style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>{f.property.title}</a>
+                ♥ <a href={`/imovel/${f.property.slug}`} style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>{f.property.title}</a>
                 <span style={{ color: "var(--stone)" }}> · {f.property.neighborhood} · {brl(f.property.price)}</span>
               </li>
             ))}
