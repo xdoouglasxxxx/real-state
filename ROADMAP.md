@@ -6,7 +6,7 @@
 >
 > Legenda: ✅ entregue em produção · 🔶 parcial (o que falta está anotado) · ⬜ a fazer
 >
-> Última atualização: **06/09/2026** (Portal do Cliente v2 em produção; substitui
+> Última atualização: **06/09/2026 (noite)** — feed de portais + vistoria digital em produção (substitui
 > também o PDF "ROADMAP_ATUALIZADO" de 13/08)
 
 ---
@@ -65,6 +65,8 @@ imóvel) · 🔶 WhatsApp (código pronto; falta app na Meta) · ⬜ Resend ·
   download por URL assinada (database/15 + 16)
 - ✅ Locação: RentalContract + RentPayment, pagamento do inquilino → caixa,
   **repasse ao proprietário** (aluguel − taxa adm, só após pagamento; database/18 + 19)
+- ✅ **Vistoria digital de locação** (06/09/2026, database/25): entrada/saída por
+  contrato, ambientes com estado + fotos, comparativo lado a lado e impressão/PDF
 - ✅ Compliance camada 1: LGPD (consentimento no lead), CRECI (UF/validade por
   corretor), COAF (espécie no contrato + marcação de reporte) — database/20
 - ✅ Gerador de contratos por modelo do tenant (database/21) — 🔶 assinatura
@@ -79,7 +81,9 @@ imóvel) · 🔶 WhatsApp (código pronto; falta app na Meta) · ⬜ Resend ·
 - ⬜ Score de compra dinâmico (comportamento) · ⬜ Argumentos de venda por IA
 - ⬜ Resumo executivo diário + perguntas livres sobre a base (function calling)
 - ⬜ Comparativo de mercado (começar com a base própria acumulada)
-- ⬜ Automação lead → tarefa → WhatsApp → e-mail → follow-up · Meta Ads · XML portais
+- ✅ **XML portais** (06/09/2026, database/24): feed VRSync (ZAP/VivaReal/OLX) +
+  genérico por token de tenant, URLs na tela de Configurações
+- ⬜ Automação lead → tarefa → WhatsApp → e-mail → follow-up · Meta Ads
 - ⬜ BI executivo: ROI, CAC por origem, LTV, ano vs ano · Busca semântica (pgvector)
 
 ## 🌊 ONDA 6 — Escala e plataforma
@@ -92,18 +96,20 @@ imóvel) · 🔶 WhatsApp (código pronto; falta app na Meta) · ⬜ Resend ·
 ## 🎯 PRÓXIMOS PASSOS
 
 **Do Douglas (operacional):**
-1. **Limpar dados de teste em produção** (corretores "teste"/"Corretor2026"/"aaa…",
-   depoimento "teste", proposta de teste R$ 530.000) — SQL de limpeza combinado
-2. Stripe: criar conta + 5 env vars (STRIPE.md) + testar com cartão 4242
-3. WhatsApp na Meta · onboarding dos 5 clientes · tours Matterport
+1. ✅ ~~Limpar dados de teste em produção~~ (feito 06/09)
+2. Cadastrar a URL do feed nos painéis dos portais (ZAP/Canal Pro etc. —
+   Configurações → Integração com portais)
+3. Stripe: criar conta + 5 env vars (STRIPE.md) + testar com cartão 4242
+4. WhatsApp na Meta · onboarding dos 5 clientes · tours Matterport
 
-**De desenvolvimento (nesta ordem):**
-1. **Domínio próprio por tenant** (API Vercel) — fecha de vez a Onda 3
-2. Polimento do Portal do Cliente: `notifyNewProposal` (WhatsApp ao corretor),
+**De desenvolvimento (nesta ordem — frentes A/B do plano de mercado):**
+1. **A2 Tarefas/follow-up no CRM** e **B2 DIMOB** (próximas etapas sem custo)
+2. **Domínio próprio por tenant** (API Vercel) — fecha de vez a Onda 3
+3. Polimento do Portal do Cliente: `notifyNewProposal` (WhatsApp ao corretor),
    estado ativo na nav, agendar visita pelo portal
-3. Onda 4 restante: badges documentais → assinatura digital → metas editáveis
-4. Avaliar remoção do Tailwind do build (regra 3 do CLAUDE.md; exige build
-   validado na Vercel)
+4. B3 aceite eletrônico → badges documentais → metas editáveis
+5. C1 segurança (rate limit, RLS verificado, LGPD export) · avaliar remoção
+   do Tailwind do build (exige build validado na Vercel)
 
 ## Princípios
 1. **Produção toda semana.** 2. **Cliente pagante dita a ordem.** 3. **Supabase/Vercel até
