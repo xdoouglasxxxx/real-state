@@ -303,6 +303,11 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
              href={`/painel/financeiro/exportar?mes=${mesStr}${filtro ? `&filtro=${filtro}` : ""}${cat ? `&cat=${cat}` : ""}${q ? `&q=${encodeURIComponent(q)}` : ""}`}>
             ⬇ CSV
           </a>
+          <a className="btn-outline" style={{ whiteSpace: "nowrap" }}
+             title="Base para a declaração DIMOB — CPF/CNPJ das partes é completado pela contabilidade"
+             href={`/painel/financeiro/exportar/dimob?ano=${new Date().getFullYear() - 1}`}>
+            ⬇ DIMOB
+          </a>
         </form>
       </div>
       {(filtro || cat || q) && (
