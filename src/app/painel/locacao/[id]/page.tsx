@@ -34,6 +34,7 @@ export default async function ContratoLocacao({
         <h1>{c.property?.title}</h1>
         <span className="pill">{c.status === "ATIVO" ? "Contrato ativo" : c.status === "ENCERRADO" ? "Encerrado" : "Rescindido"}</span>
         <Link className="btn-outline" href={`/painel/locacao/${c.id}/documento`} style={{ fontSize: ".85rem" }}>📄 Gerar contrato</Link>
+        <Link className="btn-outline" href={`/painel/locacao/${c.id}/vistoria`} style={{ fontSize: ".85rem" }}>📋 Vistorias</Link>
       </div>
 
       {searchParams.ok && <p className="ok" style={{ marginBottom: "1rem" }}>✔ Contrato criado — régua de cobrança gerada até {fmtD(c.endDate)}.</p>}

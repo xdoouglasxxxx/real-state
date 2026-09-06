@@ -247,3 +247,96 @@ export async function closeRentalContract(formData: FormData) {
   revalidatePath("/painel/imoveis");
   redirect(`/painel/locacao/${id}?encerrado=1${multa > 0 ? `&multa=${multa}` : ""}`);
 }
+
+/* ---------- VISTORIA DIGITAL (entrada/saída) ---------- */
+
+const INSPECTION_KINDS = ["ENTRADA", "SAIDA"] as const;
+const ROOM_STATES = ["OTIMO", "BOM", "REGULAR", "RUIM"];
+
+/** Sanitiza o JSON de ambientes vindo do form — nunca confiar no cliente. */
+function sanitizeRooms(raw: unknown): { nome: string; estado: string; obs: string; fotos: string[] }[] {
+  let parsed: unknown;
+  try { parsed = JSON.parse(String(raw ?? "[]")); } catch { return []; }
+  if (!Array.isArray(parsed)) return [];
+  return parsed.slice(0, 30).map((r: any) => ({
+    nome: String(r?.nome ?? "").trim().slice(0, 60),
+    estado: ROOM_STATES.includes(String(r?.estado)) ? String(r.estado) : "BOM",
+    obs: String(r?.obs ?? "").trim().slice(0, 1000),
+    fotos: (Array.isArray(r?.fotos) ? r.fotos : [])
+      .slice(0, 20)
+      .map((u: any) => String(u ?? "").trim().slice(0, 500))
+      .filter((u: string) => u.startsWith("http")),
+  })).filter((r) => r.nome.length > 0);
+}
+
+/** Cria (ou reabre a existente) a vistoria de um tipo para o contrato. */
+export async function createInspection(formData: FormData) {
+  const ctx = await requireAdmin();
+  const contractId = String(formData.get("contractId") ?? "");
+  const kind = String(formData.get("kind") ?? "") as (typeof INSPECTION_KINDS)[number];
+  if (!contractId || !INSPECTION_KINDS.includes(kind)) redirect("/painel/locacao");
+
+  let inspectionId = "";
+  try {
+    const contract = await prisma.rentalContract.findFirst({
+      where: { id: contractId, organizationId: ctx.org.id }, select: { id: true },
+    });
+    if (!contract) redirect("/painel/locacao");
+
+    const existing = await prisma.inspection.findFirst({
+      where: { rentalContractId: contractId, kind, organizationId: ctx.org.id },
+      select: { id: true },
+    });
+    if (existing) {
+      inspectionId = existing.id;
+    } else {
+      const insp = await prisma.inspection.create({
+        data: { organizationId: ctx.org.id, rentalContractId: contractId, kind, rooms: [] },
+      });
+      inspectionId = insp.id;
+    }
+  } catch (e) {
+    rethrowRedirect(e);
+    console.error("createInspection:", e);
+    redirect(`/painel/locacao/${contractId}?erro=1`);
+  }
+  redirect(`/painel/locacao/${contractId}/vistoria/${inspectionId}`);
+}
+
+/** Salva a vistoria (rascunho ou concluída). Posse validada antes. */
+export async function saveInspection(formData: FormData) {
+  const ctx = await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const op = String(formData.get("op") ?? "salvar"); // salvar | concluir | reabrir
+  let contractId = "";
+
+  try {
+    const insp = await prisma.inspection.findFirst({
+      where: { id, organizationId: ctx.org.id },
+      select: { id: true, rentalContractId: true },
+    });
+    if (!insp) redirect("/painel/locacao");
+    contractId = insp!.rentalContractId;
+
+    const dateRaw = String(formData.get("inspectedAt") ?? "").trim();
+    const inspectedAt = dateRaw ? new Date(`${dateRaw}T12:00:00`) : undefined;
+
+    await prisma.inspection.update({
+      where: { id: insp!.id },
+      data: {
+        inspectorName: String(formData.get("inspectorName") ?? "").trim().slice(0, 80) || null,
+        notes: String(formData.get("notes") ?? "").trim().slice(0, 2000) || null,
+        rooms: sanitizeRooms(formData.get("rooms")),
+        ...(inspectedAt && !isNaN(+inspectedAt) ? { inspectedAt } : {}),
+        status: op === "concluir" ? "CONCLUIDA" : op === "reabrir" ? "RASCUNHO" : undefined,
+      },
+    });
+  } catch (e) {
+    rethrowRedirect(e);
+    console.error("saveInspection:", e);
+    redirect(contractId ? `/painel/locacao/${contractId}/vistoria/${id}?erro=1` : "/painel/locacao");
+  }
+  revalidatePath(`/painel/locacao/${contractId}/vistoria`);
+  if (op === "concluir") redirect(`/painel/locacao/${contractId}/vistoria?ok=1`);
+  redirect(`/painel/locacao/${contractId}/vistoria/${id}?salvo=1`);
+}

@@ -60,6 +60,7 @@ model Organization {
   rentalContracts   RentalContract[]
   rentPayments      RentPayment[]
   contractTemplates ContractTemplate[]
+  inspections       Inspection[]
   financingRates    Json? // taxas por banco p/ simulador (Onda 4.3): [{banco, taxa}]
 }
 
@@ -704,9 +705,41 @@ model RentalContract {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   payments        RentPayment[]
+  inspections     Inspection[]
 
   @@index([organizationId, status])
   @@index([propertyId])
+}
+
+// Vistoria digital de locação (entrada/saída) — Onda "mercado" B1.
+// rooms: JSON [{ nome, estado: OTIMO|BOM|REGULAR|RUIM, obs, fotos: [urls] }]
+model Inspection {
+  id               String           @id @default(cuid())
+  organizationId   String
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rentalContractId String
+  rentalContract   RentalContract   @relation(fields: [rentalContractId], references: [id], onDelete: Cascade)
+  kind             InspectionKind
+  status           InspectionStatus @default(RASCUNHO)
+  inspectedAt      DateTime         @default(now())
+  inspectorName    String?
+  notes            String? // observações gerais — INTERNAS, nunca no portal
+  rooms            Json    @default("[]")
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@unique([rentalContractId, kind]) // 1 entrada + 1 saída por contrato
+  @@index([organizationId])
+}
+
+enum InspectionKind {
+  ENTRADA
+  SAIDA
+}
+
+enum InspectionStatus {
+  RASCUNHO
+  CONCLUIDA
 }
 
 model RentPayment {
