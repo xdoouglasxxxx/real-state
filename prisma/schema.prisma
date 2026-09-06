@@ -36,6 +36,8 @@ model Organization {
   // Self-service: credenciais do administrador do tenant
   adminEmail    String?
   panelPassHash String?
+  // Feed XML para portais (ZAP/VivaReal/OLX) — token na URL pública do feed
+  feedToken     String?  @unique
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

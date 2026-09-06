@@ -1,6 +1,6 @@
 import { requireAdmin } from "@/lib/perm";
 import { prisma } from "@/lib/prisma";
-import { updateOrganization, saveFinancingRates } from "./actions";
+import { updateOrganization, saveFinancingRates, regenerateFeedToken } from "./actions";
 import type { FinancingRate } from "@/lib/financing";
 
 export const dynamic = "force-dynamic";
@@ -9,10 +9,19 @@ export default async function Configuracoes({ searchParams }: { searchParams: { 
   const { org: tenant } = await requireAdmin();
   let org: any = tenant;
   try {
-    org = (await prisma.organization.findUnique({ where: { id: tenant.id } })) ?? tenant;
+    org = (await prisma.organization.findUnique({
+      where: { id: tenant.id },
+      include: { domains: { where: { isPrimary: true }, take: 1 } },
+    })) ?? tenant;
   } catch {}
 
   const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "sua-plataforma.com.br";
+  // Mesma resolução da rota do feed: domínio próprio > subdomínio > raiz da plataforma
+  const feedBase = org.domains?.[0]?.host
+    ? `https://${org.domains[0].host}`
+    : process.env.NEXT_PUBLIC_ROOT_DOMAIN && !process.env.NEXT_PUBLIC_ROOT_DOMAIN.includes("localhost")
+      ? `https://${org.slug}.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`
+      : "https://maisonstate.vercel.app";
   const existingRates: FinancingRate[] = Array.isArray((org as any).financingRates)
     ? (org as any).financingRates : [];
   const rateRows = Array.from({ length: 10 }, (_, i): FinancingRate =>
@@ -67,6 +76,37 @@ export default async function Configuracoes({ searchParams }: { searchParams: { 
         <div className="pform-footer">
           <button className="btn-solid" type="submit">Salvar configurações</button>
         </div>
+      </form>
+
+      <form action={regenerateFeedToken} className="pform" style={{ marginTop: "1.5rem" }}>
+        <section>
+          <h2>Integração com portais (feed XML)</h2>
+          <p className="pform-hint">
+            URL que o portal (ZAP, VivaReal, OLX/Canal Pro...) lê periodicamente para
+            importar seus imóveis à venda. Cadastre a URL no painel do portal — o custo
+            do anúncio é do plano que você já tem com ele. Regenerar o token invalida
+            as URLs antigas.
+          </p>
+          {org.feedToken ? (
+            <div className="pgrid">
+              <label className="span4">ZAP / VivaReal / OLX (formato VRSync)
+                <input readOnly value={`${feedBase}/api/feed/vrsync?token=${org.feedToken}`} />
+              </label>
+              <label className="span4">Formato genérico (outros portais)
+                <input readOnly value={`${feedBase}/api/feed/generic?token=${org.feedToken}`} />
+              </label>
+            </div>
+          ) : (
+            <p className="pform-hint">
+              Nenhum token gerado ainda — clique abaixo para criar as URLs do feed.
+            </p>
+          )}
+          <div className="pform-footer">
+            <button className="btn-outline" type="submit">
+              {org.feedToken ? "Regenerar token (invalida as URLs atuais)" : "Gerar URLs do feed"}
+            </button>
+          </div>
+        </section>
       </form>
 
       <form action={saveFinancingRates} className="pform" style={{ marginTop: "1.5rem" }}>

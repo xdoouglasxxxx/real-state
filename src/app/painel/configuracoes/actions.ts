@@ -32,6 +32,23 @@ export async function updateOrganization(formData: FormData) {
   redirect("/painel/configuracoes?salvo=1");
 }
 
+/** Gera (ou regenera) o token secreto do feed XML de portais.
+ *  Regenerar INVALIDA as URLs antigas — reconfigurar nos portais. */
+export async function regenerateFeedToken() {
+  const { org } = await requireAdmin();
+  try {
+    const { randomBytes } = await import("node:crypto");
+    await prisma.organization.update({
+      where: { id: org.id },
+      data: { feedToken: randomBytes(16).toString("hex") },
+    });
+  } catch (e) {
+    console.error("regenerateFeedToken:", e);
+  }
+  revalidatePath("/painel/configuracoes");
+  redirect("/painel/configuracoes?salvo=1");
+}
+
 export async function saveFinancingRates(formData: FormData) {
   const { org } = await requireAdmin();
 
