@@ -20,45 +20,45 @@ datasource db {
 // ---------------------------------------------------------------------
 
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique // subdomínio: <slug>.plataforma.com.br
-  logoUrl   String?
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique // subdomínio: <slug>.plataforma.com.br
+  logoUrl       String?
   // Identidade visual por tenant (tokens CSS)
-  themeInk   String @default("#17130e")
-  themeBrass String @default("#c6a15b")
-  themeCream String @default("#f4efe4")
-  creci     String?
-  phone     String?
-  email     String?
-  address   String?
-  city      String?
+  themeInk      String   @default("#17130e")
+  themeBrass    String   @default("#c6a15b")
+  themeCream    String   @default("#f4efe4")
+  creci         String?
+  phone         String?
+  email         String?
+  address       String?
+  city          String?
   // Self-service: credenciais do administrador do tenant
   adminEmail    String?
   panelPassHash String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  domains       Domain[]
-  users         User[]
-  agents        Agent[]
-  contacts      Contact[]
-  properties    Property[]
-  leads         Lead[]
-  visits        Visit[]
-  proposals     Proposal[]
-  contracts     Contract[]
-  commissions   Commission[]
-  finance       FinanceEntry[]
-  goals         Goal[]
-  blogPosts     BlogPost[]
-  testimonials  Testimonial[]
-  subscription  Subscription?
-  documents      Document[]
-  rentalContracts RentalContract[]
-  rentPayments    RentPayment[]
+  domains           Domain[]
+  users             User[]
+  agents            Agent[]
+  contacts          Contact[]
+  properties        Property[]
+  leads             Lead[]
+  visits            Visit[]
+  proposals         Proposal[]
+  contracts         Contract[]
+  commissions       Commission[]
+  finance           FinanceEntry[]
+  goals             Goal[]
+  blogPosts         BlogPost[]
+  testimonials      Testimonial[]
+  subscription      Subscription?
+  documents         Document[]
+  rentalContracts   RentalContract[]
+  rentPayments      RentPayment[]
   contractTemplates ContractTemplate[]
-  financingRates Json? // taxas por banco p/ simulador (Onda 4.3): [{banco, taxa}]
+  financingRates    Json? // taxas por banco p/ simulador (Onda 4.3): [{banco, taxa}]
 }
 
 // Domínio próprio por tenant (ex.: www.maisonestate.com.br)
@@ -86,9 +86,9 @@ model Subscription {
 }
 
 enum Plan {
-  STARTER    // Start   R$149 — site + anúncios
-  PRO        // Pro     R$349 — + CRM/ERP completo (⭐ âncora)
-  BUSINESS   // Business R$699 — ilimitado + automações + API
+  STARTER // Start   R$149 — site + anúncios
+  PRO // Pro     R$349 — + CRM/ERP completo (⭐ âncora)
+  BUSINESS // Business R$699 — ilimitado + automações + API
   ENTERPRISE // Sob consulta
 }
 
@@ -115,6 +115,8 @@ model User {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   agent          Agent?
+  contactId      String?      @unique
+  contact        Contact?     @relation("UserContact", fields: [contactId], references: [id])
   createdAt      DateTime     @default(now())
 
   @@unique([organizationId, email])
@@ -123,11 +125,11 @@ model User {
 
 enum Role {
   PLATFORM_ADMIN // dono do SaaS
-  ORG_ADMIN      // dono da imobiliária
-  MANAGER        // gerente comercial
-  AGENT          // corretor
-  CLIENT         // portal do cliente
-  OWNER          // portal do proprietário
+  ORG_ADMIN // dono da imobiliária
+  MANAGER // gerente comercial
+  AGENT // corretor
+  CLIENT // portal do cliente
+  OWNER // portal do proprietário
 }
 
 // Perfil comercial do corretor
@@ -148,17 +150,17 @@ model Agent {
   isActive       Boolean      @default(true)
   createdAt      DateTime     @default(now())
 
-  properties  Property[]
-  leads       Lead[]
-  visits      Visit[]
-  commissions Commission[]
-  goals       Goal[]
-
-  @@index([organizationId])
-  financeEntries FinanceEntry[]
+  properties      Property[]
+  leads           Lead[]
+  visits          Visit[]
+  commissions     Commission[]
+  goals           Goal[]
+  financeEntries  FinanceEntry[]
   rentalContracts RentalContract[]
   creciUf         String? // compliance (Onda 4.5)
   creciValidUntil DateTime?
+
+  @@index([organizationId])
 }
 
 // Cliente, proprietário ou ambos — pessoa de contato
@@ -170,20 +172,21 @@ model Contact {
   name           String
   phone          String?
   email          String?
-  document       String?      // CPF/CNPJ — LGPD: minimize e proteja
+  document       String? // CPF/CNPJ — LGPD: minimize e proteja
   notes          String?
   createdAt      DateTime     @default(now())
 
-  ownedProperties Property[] @relation("PropertyOwner")
+  ownedProperties Property[]       @relation("PropertyOwner")
   leads           Lead[]
   visits          Visit[]
   proposals       Proposal[]
   favorites       Favorite[]
+  user            User?            @relation("UserContact")
+  rentalsAsOwner  RentalContract[] @relation("RentalOwner")
+  rentalsAsTenant RentalContract[] @relation("RentalTenant")
 
   @@index([organizationId])
   @@index([organizationId, phone])
-  rentalsAsOwner  RentalContract[] @relation("RentalOwner")
-  rentalsAsTenant RentalContract[] @relation("RentalTenant")
 }
 
 enum ContactKind {
@@ -200,7 +203,7 @@ model Property {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  slug           String       // URL amigável: /imovel/casa-do-vale
+  slug           String // URL amigável: /imovel/casa-do-vale
   title          String
   description    String?
   type           PropertyType
@@ -212,7 +215,7 @@ model Property {
   // Localização (endereço completo NÃO é exibido no site público)
   neighborhood String?
   city         String?
-  state        String?  @default("SP")
+  state        String? @default("SP")
   zipcode      String?
   address      String?
   latitude     Float?
@@ -230,8 +233,8 @@ model Property {
   agentId String?
   agent   Agent?   @relation(fields: [agentId], references: [id])
 
-  commissionPct Decimal? @db.Decimal(5, 2) // sobrepõe a % do corretor se definida
-  isFeatured    Boolean  @default(false)
+  commissionPct Decimal?  @db.Decimal(5, 2) // sobrepõe a % do corretor se definida
+  isFeatured    Boolean   @default(false)
   publishedAt   DateTime?
 
   // SEO por imóvel
@@ -241,20 +244,20 @@ model Property {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  media     PropertyMedia[]
-  documents Document[]
-  leads     Lead[]
-  visits    Visit[]
-  proposals Proposal[]
-  favorites Favorite[]
-  history   PropertyEvent[]
+  media           PropertyMedia[]
+  documents       Document[]
+  leads           Lead[]
+  visits          Visit[]
+  proposals       Proposal[]
+  favorites       Favorite[]
+  history         PropertyEvent[]
+  financeEntries  FinanceEntry[]
+  rentalContracts RentalContract[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, status])
   @@index([organizationId, city, neighborhood])
   @@index([organizationId, price])
-  financeEntries FinanceEntry[]
-  rentalContracts RentalContract[]
 }
 
 enum PropertyType {
@@ -281,7 +284,7 @@ model PropertyMedia {
   propertyId String
   property   Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   kind       MediaKind @default(PHOTO)
-  url        String    // Cloudinary / Supabase Storage
+  url        String // Cloudinary / Supabase Storage
   caption    String?
   sortOrder  Int       @default(0)
 
@@ -298,23 +301,23 @@ enum MediaKind {
 
 // A "pasta" do imóvel: escritura, matrícula, IPTU, contrato...
 model Document {
-  id         String   @id @default(cuid())
-  propertyId String?
-  property   Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  contractId String?
-  contract   Contract? @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  kind       DocKind
-  name       String
-  fileUrl    String   // storage privado + URL assinada, NUNCA público
-  uploadedAt DateTime @default(now())
-
-  @@index([propertyId])
-  @@index([contractId])
+  id             String        @id @default(cuid())
+  propertyId     String?
+  property       Property?     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  contractId     String?
+  contract       Contract?     @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  kind           DocKind
+  name           String
+  fileUrl        String // storage privado + URL assinada, NUNCA público
+  uploadedAt     DateTime      @default(now())
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   uploadedBy     String? // rastreabilidade (Onda 4.2)
   financeEntryId String?
   financeEntry   FinanceEntry? @relation(fields: [financeEntryId], references: [id], onDelete: SetNull)
+
+  @@index([propertyId])
+  @@index([contractId])
 }
 
 enum DocKind {
@@ -336,7 +339,7 @@ model PropertyEvent {
   id         String   @id @default(cuid())
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  type       String   // "price_change" | "status_change" | "note" | ...
+  type       String // "price_change" | "status_change" | "note" | ...
   payload    Json?
   createdAt  DateTime @default(now())
 
@@ -372,21 +375,21 @@ model Lead {
   stage          LeadStage    @default(NEW)
   score          Int          @default(0) // qualificação (IA/regras)
   budgetMax      Decimal?     @db.Decimal(14, 2)
-  interest       String?      // "casa até 900 mil em Curitiba"
+  interest       String? // "casa até 900 mil em Curitiba"
   objections     String? // objeções mapeadas do cliente (Copiloto 3.5)
   lostReason     String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  activities Activity[]
-  visits     Visit[]
-  proposals  Proposal[]
+  activities    Activity[]
+  visits        Visit[]
+  proposals     Proposal[]
+  lgpdConsentAt DateTime? // LGPD: consentimento no formulário
+  lgpdIp        String?
 
   @@index([organizationId, stage])
   @@index([organizationId, agentId, stage])
   @@index([organizationId, createdAt])
-  lgpdConsentAt DateTime? // LGPD: consentimento no formulário
-  lgpdIp        String?
 }
 
 enum LeadSource {
@@ -401,12 +404,12 @@ enum LeadSource {
 }
 
 enum LeadStage {
-  NEW          // entrou
-  CONTACTED    // recebeu WhatsApp/ligação
-  VISIT        // visita marcada/feita
-  PROPOSAL     // proposta enviada
-  FINANCING    // aguardando financiamento
-  CONTRACT     // contrato aguardando assinatura
+  NEW // entrou
+  CONTACTED // recebeu WhatsApp/ligação
+  VISIT // visita marcada/feita
+  PROPOSAL // proposta enviada
+  FINANCING // aguardando financiamento
+  CONTRACT // contrato aguardando assinatura
   WON
   LOST
 }
@@ -417,15 +420,15 @@ model Activity {
   leadId    String
   lead      Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
   type      ActivityType
-  payload   Json?        // {"message": "...", "channel": "whatsapp"}
+  payload   Json? // {"message": "...", "channel": "whatsapp"}
   createdAt DateTime     @default(now())
 
   @@index([leadId, createdAt])
 }
 
 enum ActivityType {
-  PAGE_VIEW      // clicou no imóvel A
-  FORM_SUBMIT    // pediu atendimento
+  PAGE_VIEW // clicou no imóvel A
+  FORM_SUBMIT // pediu atendimento
   WHATSAPP_SENT
   WHATSAPP_RECEIVED
   EMAIL_SENT
@@ -473,7 +476,7 @@ model Proposal {
   contactId      String
   contact        Contact        @relation(fields: [contactId], references: [id])
   amount         Decimal        @db.Decimal(14, 2)
-  conditions     String?        // "financiado 70%, FGTS..."
+  conditions     String? // "financiado 70%, FGTS..."
   status         ProposalStatus @default(SENT)
   createdAt      DateTime       @default(now())
   respondedAt    DateTime?
@@ -503,21 +506,21 @@ model Contract {
   closedAt       DateTime?
   createdAt      DateTime       @default(now())
 
-  documents   Document[]
-  commissions Commission[]
-  finance     FinanceEntry[]
+  documents      Document[]
+  commissions    Commission[]
+  finance        FinanceEntry[]
+  paymentMethod  String? // COAF (Onda 4.5)
+  cashAmount     Decimal        @default(0) @db.Decimal(14, 2)
+  coafReportedAt DateTime?
 
   @@index([organizationId, status])
-  paymentMethod  String? // COAF (Onda 4.5)
-  cashAmount     Decimal   @default(0) @db.Decimal(14, 2)
-  coafReportedAt DateTime?
 }
 
 enum ContractStatus {
   AWAITING_SIGNATURE
   SIGNED
   FINANCING
-  CLOSED    // escriturado — venda concluída
+  CLOSED // escriturado — venda concluída
   CANCELED
 }
 
@@ -549,27 +552,27 @@ enum CommissionStatus {
 
 // Fluxo de caixa: entradas, saídas, impostos, pró-labore, despesas
 model FinanceEntry {
-  id             String       @id @default(cuid())
+  id             String        @id @default(cuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   contractId     String?
-  contract       Contract?    @relation(fields: [contractId], references: [id])
+  contract       Contract?     @relation(fields: [contractId], references: [id])
   direction      FlowDir
   category       FinCategory
   description    String
-  amount         Decimal      @db.Decimal(14, 2)
+  amount         Decimal       @db.Decimal(14, 2)
   dueDate        DateTime
   paidAt         DateTime?
+  createdBy      String? // rastreabilidade: quem lançou (Financeiro v2)
+  propertyId     String?
+  property       Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  agentId        String?
+  agent          Agent?        @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  documents      Document[]
+  rentPayments   RentPayment[]
 
   @@index([organizationId, dueDate])
   @@index([organizationId, direction, category])
-  createdBy      String? // rastreabilidade: quem lançou (Financeiro v2)
-  propertyId     String?
-  property       Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  agentId        String?
-  agent          Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
-  documents      Document[]
-  rentPayments   RentPayment[]
 }
 
 enum FlowDir {
