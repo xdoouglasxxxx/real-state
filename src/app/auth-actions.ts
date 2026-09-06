@@ -7,11 +7,7 @@ import {
   setTenantPreview, getSession, timingSafeStringEqual, type SessionRole,
 } from "@/lib/auth";
 import { isValidEmail } from "@/lib/validators";
-
-/** redirect() lança exceção de controle; se cair num catch, precisa ser relançada. */
-const rethrowRedirect = (e: unknown) => {
-  if (e && typeof e === "object" && "digest" in e && String((e as any).digest).startsWith("NEXT_REDIRECT")) throw e;
-};
+import { rethrowRedirect } from "@/lib/redirect";
 
 const slugify = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requirePanel, requireManagerUp, type PanelContext } from "@/lib/perm";
 import { calcInitialScore } from "@/lib/score";
+import { rethrowRedirect } from "@/lib/redirect";
 
 /** Autor das ações — vai na timeline (auditoria leve: quem fez o quê). */
 const author = (ctx: PanelContext) => (ctx.master ? "Master (plataforma)" : ctx.email);
@@ -174,17 +175,13 @@ export async function upsertClientAccess(formData: FormData) {
       data: { leadId, type: "NOTE", payload: { note: "Acesso ao Portal do Cliente criado/atualizado", by: author(ctx) } },
     });
   } catch (e) {
-    rethrowRedirect2(e);
+    rethrowRedirect(e);
     console.error("upsertClientAccess:", e);
     redirect(`/painel/leads/${leadId}?cliente=erro`);
   }
   revalidatePath(`/painel/leads/${leadId}`);
   redirect(`/painel/leads/${leadId}?cliente=ok`);
 }
-
-const rethrowRedirect2 = (e: unknown) => {
-  if (e && typeof e === "object" && "digest" in e && String((e as any).digest).startsWith("NEXT_REDIRECT")) throw e;
-};
 
 /** Objeções mapeadas do cliente — a "munição" do corretor. Corretor só nos próprios leads. */
 export async function saveObjections(formData: FormData) {

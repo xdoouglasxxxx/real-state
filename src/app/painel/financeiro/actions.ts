@@ -4,10 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/perm";
-
-const rethrowRedirect = (e: unknown) => {
-  if (e && typeof e === "object" && "digest" in e && String((e as any).digest).startsWith("NEXT_REDIRECT")) throw e;
-};
+import { rethrowRedirect } from "@/lib/redirect";
 
 const CATEGORIES = ["COMISSAO_RECEBIDA", "COMISSAO_PAGA", "IMPOSTO", "PRO_LABORE", "DESPESA_FIXA", "DESPESA_VARIAVEL", "MARKETING", "RECEITA_OUTRA"] as const;
 

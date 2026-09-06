@@ -5,10 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/perm";
 import { getStripe, stripeEnabled, planPriceId, baseUrl } from "@/lib/stripe";
 import { TRIAL_DAYS } from "@/lib/plans";
-
-const rethrowRedirect = (e: unknown) => {
-  if (e && typeof e === "object" && "digest" in e && String((e as any).digest).startsWith("NEXT_REDIRECT")) throw e;
-};
+import { rethrowRedirect } from "@/lib/redirect";
 
 /** Abre o Stripe Checkout para assinar o plano escolhido.
  *  Se ainda restar trial interno (≥ 3 dias), o cartão é salvo agora e a

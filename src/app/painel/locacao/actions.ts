@@ -4,10 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/perm";
+import { rethrowRedirect } from "@/lib/redirect";
 
-const rethrowRedirect = (e: unknown) => {
-  if (e && typeof e === "object" && "digest" in e && String((e as any).digest).startsWith("NEXT_REDIRECT")) throw e;
-};
 const money = (raw: unknown) => Number(String(raw ?? "").replace(/[^\d,]/g, "").replace(",", "."));
 const addMonthsClamped = (d: Date, i: number, day: number) => {
   const y = d.getFullYear(), m = d.getMonth() + i;

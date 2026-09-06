@@ -5,10 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/perm";
 import { DEFAULT_VENDA, DEFAULT_LOCACAO } from "@/lib/contract-render";
-
-const rethrowRedirect = (e: unknown) => {
-  if (e && typeof e === "object" && "digest" in e && String((e as any).digest).startsWith("NEXT_REDIRECT")) throw e;
-};
+import { rethrowRedirect } from "@/lib/redirect";
 
 /** Garante que o tenant tem os 2 modelos padrão (idempotente). */
 export async function ensureDefaultTemplates(orgId: string) {

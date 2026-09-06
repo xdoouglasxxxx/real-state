@@ -7,10 +7,7 @@ import { requireAdmin } from "@/lib/perm";
 import { hashPassword } from "@/lib/auth";
 import { getPlan } from "@/lib/plans";
 import { isValidEmail } from "@/lib/validators";
-
-const rethrowRedirect = (e: unknown) => {
-  if (e && typeof e === "object" && "digest" in e && String((e as any).digest).startsWith("NEXT_REDIRECT")) throw e;
-};
+import { rethrowRedirect } from "@/lib/redirect";
 
 const PANEL_ROLES = ["ORG_ADMIN", "MANAGER", "AGENT"] as const;
 
