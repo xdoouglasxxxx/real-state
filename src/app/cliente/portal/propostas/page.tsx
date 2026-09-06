@@ -2,12 +2,20 @@ import { prisma } from "@/lib/prisma";
 import { requireClientPortal } from "@/lib/perm";
 import { CLIENT_STAGE, PROPOSAL_LABEL } from "@/lib/data";
 import { brl } from "@/lib/format";
+import { submitClientProposal } from "../actions";
+import MoneyInput from "@/components/painel/MoneyInput";
 
 export const dynamic = "force-dynamic";
 
 const fmtD = (x: Date | string) => new Date(x).toLocaleDateString("pt-BR");
 
-export default async function PropostasPage() {
+const ERRO_MSG: Record<string, string> = {
+  valor: "Informe um valor válido para a proposta.",
+  lead: "Não foi possível localizar essa negociação — atualize a página e tente de novo.",
+  interno: "Algo deu errado ao enviar. Tente novamente em instantes.",
+};
+
+export default async function PropostasPage({ searchParams }: { searchParams: { ok?: string; erro?: string } }) {
   const ctx = await requireClientPortal();
 
   let journeys: any[] = [];
@@ -35,6 +43,9 @@ export default async function PropostasPage() {
       <p style={{ color: "var(--stone)", marginBottom: "1.6rem" }}>
         Acompanhe as propostas de cada negociação com a {ctx.org.name}.
       </p>
+
+      {searchParams.ok && <p className="ok" style={{ marginBottom: "1.2rem" }}>Proposta enviada! Seu corretor já foi avisado e ela aparece abaixo.</p>}
+      {searchParams.erro && <p className="pform-error" style={{ marginBottom: "1.2rem" }}>{ERRO_MSG[searchParams.erro] ?? ERRO_MSG.interno}</p>}
 
       {journeys.length === 0 && (
         <section className="ficha-box">
@@ -76,6 +87,30 @@ export default async function PropostasPage() {
                   </li>
                 ))}
               </ul>
+            )}
+
+            {/* Nova proposta: só em negociação aberta e com imóvel definido */}
+            {j.property && j.stage !== "WON" && j.stage !== "LOST" && (
+              <details style={{ marginTop: ".9rem" }}>
+                <summary style={{ cursor: "pointer", color: "var(--brass)", fontSize: ".9rem" }}>Enviar nova proposta</summary>
+                <form action={submitClientProposal} className="pform" style={{ marginTop: ".7rem" }}>
+                  <input type="hidden" name="leadId" value={j.id} />
+                  <div className="pgrid">
+                    <label>
+                      Valor da proposta
+                      <MoneyInput name="amount" required placeholder="R$ 0,00" />
+                    </label>
+                    <label className="span2">
+                      Condições (opcional)
+                      <textarea name="conditions" rows={3} maxLength={2000}
+                        placeholder="Ex.: sinal de 20% + financiamento bancário + FGTS" />
+                    </label>
+                  </div>
+                  <div className="pform-footer">
+                    <button className="btn-solid" type="submit">Enviar proposta</button>
+                  </div>
+                </form>
+              </details>
             )}
           </section>
         );
