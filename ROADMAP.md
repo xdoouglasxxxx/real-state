@@ -26,7 +26,9 @@ completa · ✅ Auth real com papéis ADMIN/GERENTE/CORRETOR
 ✅ Kanban drag-and-drop · ✅ Ficha com timeline + autoria · ✅ Agenda com contexto do
 lead e bloqueio de data passada · ✅ Rodízio automático (prioridade ao corretor do
 imóvel) · 🔶 WhatsApp (código pronto; falta app na Meta) · ⬜ Resend ·
-⬜ Google Calendar · ⬜ Etapas customizáveis · ⬜ Tarefas/próximo contato
+⬜ Google Calendar · ⬜ Etapas customizáveis · ✅ **Tarefas/próximo contato**
+(06/09/2026, database/26: tarefa por lead na ficha, box "Tarefas de hoje" nos
+dashboards do gestor e do corretor, badge no menu)
 
 ## 🌊 ONDA 3 — Cobrança e portais — **CONCLUÍDA em 06/09/2026** 🎉
 - ✅ Multiusuário + papéis + tela Usuários + Minha conta
@@ -60,7 +62,8 @@ imóvel) · 🔶 WhatsApp (código pronto; falta app na Meta) · ⬜ Resend ·
 
 ## 🌊 ONDA 4 — Financeiro + Contratos + Documentos (o ERP) — **CONCLUÍDA no essencial**
 - ✅ Financeiro v2: fluxo de caixa, contas a pagar/receber, comissões, exportação
-  (database/14 + 17)
+  (database/14 + 17) · ✅ **DIMOB** (06/09/2026): CSV anual por contrato de
+  locação na tela de exportação (CPF/CNPJ pela contabilidade)
 - ✅ Documentos por imóvel/contrato com tipos (DocKind), upload rastreado e
   download por URL assinada (database/15 + 16)
 - ✅ Locação: RentalContract + RentPayment, pagamento do inquilino → caixa,
@@ -103,8 +106,8 @@ imóvel) · 🔶 WhatsApp (código pronto; falta app na Meta) · ⬜ Resend ·
 4. WhatsApp na Meta · onboarding dos 5 clientes · tours Matterport
 
 **De desenvolvimento (nesta ordem — frentes A/B do plano de mercado):**
-1. **A2 Tarefas/follow-up no CRM** e **B2 DIMOB** (próximas etapas sem custo)
-2. **Domínio próprio por tenant** (API Vercel) — fecha de vez a Onda 3
+1. ✅ ~~A2 Tarefas/follow-up~~ e ~~B2 DIMOB~~ (entregues 06/09)
+2. **A3 BI v2 + A4 SEO pro** (sprint 2) · **Domínio próprio por tenant** (sprint 3)
 3. Polimento do Portal do Cliente: `notifyNewProposal` (WhatsApp ao corretor),
    estado ativo na nav, agendar visita pelo portal
 4. B3 aceite eletrônico → badges documentais → metas editáveis
