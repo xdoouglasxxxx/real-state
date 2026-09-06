@@ -14,7 +14,7 @@ const slugify = (s: string) =>
    .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "imobiliaria";
 
 const PANEL_ROLES = ["ORG_ADMIN", "MANAGER", "AGENT"] as const;
-const LOGIN_ROLES = ["ORG_ADMIN", "MANAGER", "AGENT", "CLIENT"] as const;
+const LOGIN_ROLES = ["ORG_ADMIN", "MANAGER", "AGENT", "CLIENT", "OWNER"] as const;
 
 /** Cadastro self-service: cria o tenant completo e loga o admin. */
 export async function createTenant(formData: FormData) {
@@ -133,8 +133,9 @@ export async function login(formData: FormData) {
         userId: user!.id,
         role: user!.role as SessionRole,
         agentId: user!.agent?.id ?? null,
+        contactId: user!.contactId ?? null,
       });
-      dest = user!.role === "CLIENT" ? "/cliente" : "/painel";
+      dest = user!.role === "CLIENT" || user!.role === "OWNER" ? "/cliente" : "/painel";
     }
   } catch (e) {
     rethrowRedirect(e);

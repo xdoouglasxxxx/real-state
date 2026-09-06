@@ -53,6 +53,8 @@ type Session = {
   userId?: string;
   role?: SessionRole;
   agentId?: string | null;
+  /** vínculo Contact do CLIENT/OWNER; sessões antigas não têm (fallback por e-mail) */
+  contactId?: string | null;
   master?: boolean;
   exp: number;
 };

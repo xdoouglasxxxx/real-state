@@ -10,18 +10,25 @@ export const dynamic = "force-dynamic";
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const org = await getTenant();
   const session = getSession();
-  if (!session || session.orgId !== org.id || session.role !== "CLIENT") {
+  if (!session || session.orgId !== org.id || (session.role !== "CLIENT" && session.role !== "OWNER")) {
     return new NextResponse("não autorizado", { status: 401 });
   }
 
-  // O documento precisa pertencer a um contrato cuja proposta é de um contato com o e-mail do cliente
+  // O documento precisa pertencer a um contrato cuja proposta é de um contato do cliente
+  // (vínculo contactId da sessão; e-mail cobre sessões antigas sem o campo)
   const doc = await prisma.document.findFirst({
     where: {
       id: params.id,
       organizationId: org.id,
       contract: {
         proposal: {
-          contact: { organizationId: org.id, email: { equals: session.email, mode: "insensitive" } },
+          contact: {
+            organizationId: org.id,
+            OR: [
+              ...(session.contactId ? [{ id: session.contactId }] : []),
+              { email: { equals: session.email, mode: "insensitive" as const } },
+            ],
+          },
         },
       },
     },
