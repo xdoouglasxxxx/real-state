@@ -37,6 +37,8 @@ O stack é enxuto de propósito: next, react, @prisma/client, stripe
 1. `npx tsc --noEmit` limpo (corrigir só erros causados pelos próprios diffs;
    a Vercel é a juíza final do build).
 2. Um tema por commit; mensagem longa via arquivo + `git commit -F`.
-3. **Push é manual do Douglas — pare após commitar.**
+3. **Push é manual por padrão — pare após commitar.** Só dê push com ordem
+   explícita do Douglas na conversa.
 4. Nunca operação destrutiva em produção sem autorização explícita
    (banco de produção = Supabase único; migrações são manuais, ver 05).
+5. Dados de teste em produção: só sintéticos, marcados e limpos ao final.

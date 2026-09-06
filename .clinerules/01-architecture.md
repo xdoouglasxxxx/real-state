@@ -29,12 +29,17 @@
 
 ## CSS / UI
 
-Design system próprio em `src/app/globals.css` (dark-luxury, dourado `--brass`):
-`.kpi .ficha-box .pform .pgrid(.span2/3/4) .pill .table .meta-bar .btn-solid
-.btn-outline .pform-error .ok .nav-badge .panel-link .timeline`.
-Tailwind está ativo no build por legado, mas classes utilitárias são
-PROIBIDAS no código (`bg-[#...]`, `flex`, `p-4`...). PROIBIDO Shadcn, lucide
-ou qualquer lib de UI. Estilo pontual: `style={{}}` inline.
+Design system próprio em `src/app/globals.css` (dark-luxury, dourado `--brass`)
+para PADRÕES REPETIDOS: `.kpi .ficha-box .pform .pgrid(.span2/3/4) .pill
+.table .meta-bar .btn-solid .btn-outline .pform-error .ok .nav-badge
+.panel-link .timeline`.
+
+Tailwind LIBERADO para composição local: utilitárias de layout/espaçamento
+(`flex`, `grid`, `p-4`, `mt-2`...) e cores DO TEMA (`bg-ink`, `text-brass`,
+`bg-cream`, `border-stone` — mapeadas no `tailwind.config.ts` para as CSS
+vars do tenant). **PROIBIDO hex arbitrário** (`bg-[#c6a15b]`) — quebra o
+white-label; cor nova vira token no `:root` + tailwind.config.
+PROIBIDO Shadcn, lucide ou qualquer lib de UI/ícones sem aprovação.
 
 ## TYPESCRIPT
 
