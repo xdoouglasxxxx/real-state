@@ -250,7 +250,8 @@ export default async function ClientePortal() {
 
       <p style={{ color: "var(--stone)", fontSize: ".8rem", marginTop: "1.6rem" }}>
         Dúvidas? Fale com seu corretor ou com a {org.name}
-        {org.phone ? ` · ${org.phone}` : ""}. Para trocar sua senha, peça ao seu corretor.
+        {org.phone ? ` · ${org.phone}` : ""}. Para trocar sua senha, acesse as{" "}
+        <a href="/cliente/portal/configuracoes" style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>Configurações</a>.
       </p>
     </>
   );

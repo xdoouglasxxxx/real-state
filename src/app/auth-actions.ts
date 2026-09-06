@@ -145,23 +145,27 @@ export async function login(formData: FormData) {
   redirect(dest);
 }
 
-/** Minha conta: o usuário logado troca a própria senha. */
+/** Minha conta: o usuário logado troca a própria senha.
+ *  Serve painel E portal do cliente — o destino sai da ROLE da sessão
+ *  (nunca de campo do form, que seria adulterável). */
 export async function changePassword(formData: FormData) {
   const session = getSession();
   if (!session) redirect("/login");
-  if (session!.master) redirect("/painel/conta?erro=master");
+  const base = session!.role === "CLIENT" || session!.role === "OWNER"
+    ? "/cliente/portal/configuracoes" : "/painel/conta";
+  if (session!.master) redirect(`${base}?erro=master`);
 
   const current = String(formData.get("current") ?? "");
   const next = String(formData.get("next") ?? "");
   const confirm = String(formData.get("confirm") ?? "");
-  if (next.length < 6) redirect("/painel/conta?erro=curta");
-  if (next !== confirm) redirect("/painel/conta?erro=confirma");
+  if (next.length < 6) redirect(`${base}?erro=curta`);
+  if (next !== confirm) redirect(`${base}?erro=confirma`);
 
   try {
     const user = session!.userId
       ? await prisma.user.findFirst({ where: { id: session!.userId, organizationId: session!.orgId } })
       : await prisma.user.findFirst({ where: { organizationId: session!.orgId, email: session!.email } });
-    if (!user) redirect("/painel/conta?erro=atual");
+    if (!user) redirect(`${base}?erro=atual`);
 
     const org = await prisma.organization.findUnique({
       where: { id: session!.orgId },
@@ -171,7 +175,7 @@ export async function changePassword(formData: FormData) {
     const currentOk = user!.passHash
       ? verifyPassword(current, user!.passHash)
       : verifyPassword(current, org?.panelPassHash); // legado sem hash no User
-    if (!currentOk) redirect("/painel/conta?erro=atual");
+    if (!currentOk) redirect(`${base}?erro=atual`);
 
     const passHash = hashPassword(next);
     await prisma.user.update({ where: { id: user!.id }, data: { passHash } });
@@ -183,9 +187,9 @@ export async function changePassword(formData: FormData) {
   } catch (e) {
     rethrowRedirect(e);
     console.error("changePassword:", e);
-    redirect("/painel/conta?erro=interno");
+    redirect(`${base}?erro=interno`);
   }
-  redirect("/painel/conta?salvo=1");
+  redirect(`${base}?salvo=1`);
 }
 
 export async function logout() {
