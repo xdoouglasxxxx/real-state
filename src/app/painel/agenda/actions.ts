@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { rethrowRedirect } from "@/lib/redirect";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requirePanel } from "@/lib/perm";
@@ -70,6 +71,7 @@ export async function createVisit(formData: FormData) {
     }
     ok = true;
   } catch (e) {
+    rethrowRedirect(e); // o redirect de "imóvel inválido" (erro=1) não pode virar erro=2
     console.error("createVisit:", e);
   }
   revalidatePath("/painel/agenda");

@@ -4,14 +4,16 @@ import { login } from "@/app/auth-actions";
 
 export const metadata: Metadata = { title: "Entrar", robots: { index: false } };
 
-export default function Login({ searchParams }: { searchParams: { erro?: string } }) {
+export default function Login({ searchParams }: { searchParams: { erro?: string; ok?: string } }) {
   return (
     <main className="auth-page">
       <div className="auth-card">
         <p className="eyebrow">Painel da imobiliária</p>
         <h1>Entrar</h1>
 
-        {searchParams.erro && <p className="pform-error">Credenciais inválidas. Confira o endereço, e-mail e senha.</p>}
+        {searchParams.ok === "senha" && <p className="ok">✔ Senha redefinida. Entre com a nova senha.</p>}
+        {searchParams.erro === "limite" && <p className="pform-error">Muitas tentativas. Aguarde cerca de 15 minutos e tente de novo.</p>}
+        {searchParams.erro && searchParams.erro !== "limite" && <p className="pform-error">Credenciais inválidas. Confira o endereço, e-mail e senha.</p>}
 
         <form action={login} className="form" style={{ marginTop: "1.4rem" }}>
           <input name="email" type="email" placeholder="Seu e-mail" required />
@@ -21,6 +23,7 @@ export default function Login({ searchParams }: { searchParams: { erro?: string 
           <button className="btn-solid" type="submit">Entrar</button>
         </form>
 
+        <p className="auth-alt"><Link href="/esqueci">Esqueci minha senha</Link></p>
         <p className="auth-alt">Ainda não tem conta? <Link href="/criar">Criar minha imobiliária</Link></p>
       </div>
     </main>

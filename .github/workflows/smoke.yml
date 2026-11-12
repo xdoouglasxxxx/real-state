@@ -34,6 +34,10 @@ jobs:
       - name: Gerar Prisma Client
         run: npx prisma generate
 
+      # Lógica sensível de segurança (token de reset, bloqueio de domínios, URLs públicas)
+      - name: Testes unitários
+        run: npm run test:unit
+
       # Espera 60s no push (dá tempo da Vercel publicar o deploy do mesmo commit)
       - name: Aguardar deploy da Vercel
         if: github.event_name == 'push'

@@ -2,10 +2,12 @@ import { requireAdmin } from "@/lib/perm";
 import { prisma } from "@/lib/prisma";
 import { updateOrganization, saveFinancingRates, regenerateFeedToken } from "./actions";
 import type { FinancingRate } from "@/lib/financing";
+import DomainsSection from "@/components/painel/DomainsSection";
+import { tenantBaseUrl } from "@/lib/public-url";
 
 export const dynamic = "force-dynamic";
 
-export default async function Configuracoes({ searchParams }: { searchParams: { salvo?: string } }) {
+export default async function Configuracoes({ searchParams }: { searchParams: { salvo?: string; dom?: string; c?: string } }) {
   const { org: tenant } = await requireAdmin();
   let org: any = tenant;
   try {
@@ -17,11 +19,7 @@ export default async function Configuracoes({ searchParams }: { searchParams: { 
 
   const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "sua-plataforma.com.br";
   // Mesma resolução da rota do feed: domínio próprio > subdomínio > raiz da plataforma
-  const feedBase = org.domains?.[0]?.host
-    ? `https://${org.domains[0].host}`
-    : process.env.NEXT_PUBLIC_ROOT_DOMAIN && !process.env.NEXT_PUBLIC_ROOT_DOMAIN.includes("localhost")
-      ? `https://${org.slug}.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`
-      : "https://maisonstate.vercel.app";
+  const feedBase = tenantBaseUrl(org.slug, org.domains?.[0]?.host);
   const existingRates: FinancingRate[] = Array.isArray((org as any).financingRates)
     ? (org as any).financingRates : [];
   const rateRows = Array.from({ length: 10 }, (_, i): FinancingRate =>
@@ -65,18 +63,12 @@ export default async function Configuracoes({ searchParams }: { searchParams: { 
           </div>
         </section>
 
-        <section>
-          <h2>Domínio</h2>
-          <p className="pform-hint">
-            Endereço atual: <strong>{org.slug}.{root}</strong> (ativo quando a plataforma tiver domínio configurado).
-            Conexão de domínio próprio com validação de DNS e SSL automático chega na próxima onda do roadmap.
-          </p>
-        </section>
-
         <div className="pform-footer">
           <button className="btn-solid" type="submit">Salvar configurações</button>
         </div>
       </form>
+
+      <DomainsSection orgId={org.id} slug={org.slug} root={root} flash={searchParams.dom} code={searchParams.c} />
 
       <form action={regenerateFeedToken} className="pform" style={{ marginTop: "1.5rem" }}>
         <section>

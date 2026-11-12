@@ -8,6 +8,7 @@ const ERROS: Record<string, string> = {
   campos: "Preencha nome, e-mail válido e senha com 6+ caracteres.",
   interno: "Erro ao criar. Tente novamente em instantes.",
   demo: "Plataforma em modo demonstração (sem banco configurado).",
+  limite: "Muitos cadastros a partir desta rede. Tente novamente em cerca de 1 hora.",
 };
 
 export default function Criar({ searchParams }: { searchParams: { erro?: string } }) {

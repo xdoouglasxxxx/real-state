@@ -4,6 +4,7 @@
  *  O portal consome a URL periodicamente; nada de sessão/cookie aqui. */
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { tenantBaseUrl } from "@/lib/public-url";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +26,7 @@ const esc = (v: unknown) =>
 
 /** Base pública do tenant p/ links do anúncio: domínio próprio > subdomínio > raiz. */
 function siteBase(org: { slug: string }, primaryHost?: string | null) {
-  if (primaryHost) return `https://${primaryHost}`;
-  const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
-  if (root && !root.includes("localhost")) return `https://${org.slug}.${root}`;
-  return "https://maisonstate.vercel.app";
+  return tenantBaseUrl(org.slug, primaryHost);
 }
 
 export async function GET(req: Request, { params }: { params: { portal: string } }) {

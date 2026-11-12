@@ -34,6 +34,14 @@ export async function getTenant(): Promise<Tenant> {
       });
       if (byDomain) return byDomain.organization;
 
+      // Um único cadastro atende "site.com.br" e "www.site.com.br" (exato tem prioridade).
+      const isPlatformHost = host === ROOT.split(":")[0] || host.endsWith(`.${ROOT.split(":")[0]}`) || host.endsWith(".vercel.app");
+      if (!isPlatformHost) {
+        const alt = host.startsWith("www.") ? host.slice(4) : `www.${host}`;
+        const byAlt = await prisma.domain.findUnique({ where: { host: alt }, include: { organization: true } });
+        if (byAlt) return byAlt.organization;
+      }
+
       if (host.endsWith(`.${ROOT}`)) {
         const slug = host.replace(`.${ROOT}`, "");
         const bySlug = await prisma.organization.findUnique({ where: { slug } });

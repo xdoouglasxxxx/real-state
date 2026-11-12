@@ -143,6 +143,8 @@ export default async function PropertyPage({ params, searchParams }: Props) {
                     <form action={submitVisitInquiry} className="form">
                       <input type="hidden" name="propertyId" value={p.id} />
                       <input type="hidden" name="slug" value={p.slug} />
+                      <input name="website" tabIndex={-1} autoComplete="off" aria-hidden="true"
+                        style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }} />
                       {negotiated && <input type="hidden" name="wantSimilar" value="1" />}
                       <input name="name" placeholder="Seu nome" required maxLength={120} />
                       <input name="phone" placeholder="Telefone / WhatsApp" required maxLength={20} />
@@ -151,7 +153,9 @@ export default async function PropertyPage({ params, searchParams }: Props) {
                         <input type="checkbox" name="lgpd" required style={{ width: "auto", flexShrink: 0 }} />
                         Concordo em ser contatado sobre imóveis e serviços, conforme a{" "}<a href="/privacidade" style={{ color: "var(--brass)" }}>Política de Privacidade</a>
                       </label>
-                      {searchParams.erro && <p style={{ color: "#d88" }}>Preencha todos os campos e aceite a Política de Privacidade.</p>}
+                      {searchParams.erro && <p style={{ color: "#d88" }}>{searchParams.erro === "limite"
+                        ? "Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo."
+                        : "Preencha todos os campos e aceite a Política de Privacidade."}</p>}
                       <button className="btn-solid" type="submit">
                         {negotiated ? "Quero um imóvel como este" : "Enviar interesse"}
                       </button>

@@ -61,6 +61,12 @@ type Session = {
 
 const sign = (data: string) => createHmac("sha256", SECRET).update(data).digest("base64url");
 
+/** Compara assinaturas em tempo constante (=== vaza informação por tempo). */
+const sigEqual = (a: string, b: string) => {
+  const A = Buffer.from(a), B = Buffer.from(b);
+  return A.length === B.length && timingSafeEqual(A, B);
+};
+
 export function createSession(s: Omit<Session, "exp">) {
   const payload = Buffer.from(JSON.stringify({ ...s, exp: Date.now() + WEEK * 1000 })).toString("base64url");
   cookies().set(SESSION_COOKIE, `${payload}.${sign(payload)}`, {
@@ -73,7 +79,7 @@ export function getSession(): Session | null {
   const raw = cookies().get(SESSION_COOKIE)?.value;
   if (!raw?.includes(".")) return null;
   const [payload, sig] = raw.split(".");
-  if (sign(payload) !== sig) return null;
+  if (!sigEqual(sign(payload), sig ?? "")) return null;
   try {
     const s = JSON.parse(Buffer.from(payload, "base64url").toString()) as Session;
     return s.exp > Date.now() ? s : null;

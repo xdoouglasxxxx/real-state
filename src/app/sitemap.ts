@@ -1,12 +1,13 @@
 import type { MetadataRoute } from "next";
 import { getTenant } from "@/lib/tenant";
 import { getAllPropertySlugs } from "@/lib/data";
+import { getBaseUrl } from "@/lib/base-url";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const org = await getTenant();
   const slugs = await getAllPropertySlugs(org.id);
-  const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
-  const base = `https://${org.slug}.${root}`;
+  // Host real da requisição (validado): domínio próprio, subdomínio ou raiz.
+  const base = await getBaseUrl();
 
   return [
     { url: base, changeFrequency: "daily", priority: 1 },

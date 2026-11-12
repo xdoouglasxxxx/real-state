@@ -42,6 +42,8 @@ export default function Vender({ searchParams }: { searchParams: { enviado?: str
             <input name="phone" placeholder="Telefone / WhatsApp" required maxLength={20} />
           </div>
           <input name="address" placeholder="Endereço do imóvel" required maxLength={300} />
+          <input name="website" tabIndex={-1} autoComplete="off" aria-hidden="true"
+            style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }} />
           <select name="type" defaultValue="HOUSE">
             <option value="HOUSE">Casa</option>
             <option value="APARTMENT">Apartamento</option>
@@ -52,7 +54,9 @@ export default function Vender({ searchParams }: { searchParams: { enviado?: str
             <input type="checkbox" name="lgpd" required style={{ width: "auto", flexShrink: 0 }} />
             Concordo em ser contatado sobre imóveis e serviços, conforme a{" "}<a href="/privacidade" style={{ color: "var(--brass)" }}>Política de Privacidade</a>
           </label>
-          {searchParams.erro && <p style={{ color: "#d88" }}>Preencha todos os campos e aceite a Política de Privacidade.</p>}
+          {searchParams.erro && <p style={{ color: "#d88" }}>{searchParams.erro === "limite"
+            ? "Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo."
+            : "Preencha todos os campos e aceite a Política de Privacidade."}</p>}
           <button className="btn-solid" type="submit">Solicitar avaliação gratuita</button>
         </form>
       )}

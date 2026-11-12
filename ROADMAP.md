@@ -6,8 +6,9 @@
 >
 > Legenda: ✅ entregue em produção · 🔶 parcial (o que falta está anotado) · ⬜ a fazer
 >
-> Última atualização: **06/09/2026 (noite)** — feed de portais + vistoria digital em produção (substitui
-> também o PDF "ROADMAP_ATUALIZADO" de 13/08)
+> Última atualização: **12/11/2026** — pacote de lançamento (código pronto, aguardando deploy): domínio
+> próprio por tenant, "esqueci minha senha", rate limit + RLS total, metas editáveis, SEO/feed com URL
+> correta. Ver `LANCAMENTO.md`. (Antes: 06/09/2026 — feed de portais + vistoria digital em produção)
 
 ---
 
@@ -25,7 +26,7 @@ completa · ✅ Auth real com papéis ADMIN/GERENTE/CORRETOR
 ## 🌊 ONDA 2 — CRM que vende — **CONCLUÍDA** (integrações externas pendentes)
 ✅ Kanban drag-and-drop · ✅ Ficha com timeline + autoria · ✅ Agenda com contexto do
 lead e bloqueio de data passada · ✅ Rodízio automático (prioridade ao corretor do
-imóvel) · 🔶 WhatsApp (código pronto; falta app na Meta) · ⬜ Resend ·
+imóvel) · 🔶 WhatsApp (código pronto; falta app na Meta) · 🔶 E-mail Resend (reset de senha pronto; falta conta — EMAIL.md) ·
 ⬜ Google Calendar · ⬜ Etapas customizáveis · ✅ **Tarefas/próximo contato**
 (06/09/2026, database/26: tarefa por lead na ficha, box "Tarefas de hoje" nos
 dashboards do gestor e do corretor, badge no menu)
@@ -52,8 +53,12 @@ dashboards do gestor e do corretor, badge no menu)
   - **Trocar senha pelo portal** (reusa `changePassword`, destino pela role)
   - Seeds sintéticos: `scripts/criar-cliente.mjs` (cliente@teste.com / 123456)
     e `scripts/criar-proposta-teste.mjs`
-- ⬜ Domínio próprio por tenant via API da Vercel (CNAME + validação + SSL) —
-  única pendência estrutural da onda
+- 🔶 **Domínio próprio por tenant** via API da Vercel (CNAME/A + TXT + SSL automático): tela em
+  Configurações, `src/lib/vercel-domains.ts`, www↔apex no `tenant.ts` — **código pronto**; liga ao preencher
+  `VERCEL_API_TOKEN` + `VERCEL_PROJECT_ID` (DOMINIOS.md). Ainda não exercitado contra a API real.
+- ✅ **Esqueci minha senha** (`/esqueci` → `/redefinir`): token stateless HMAC de 1h e uso único, sem tabela;
+  envio por Resend (EMAIL.md)
+- ✅ Portal do Cliente → `notifyNewProposal` (WhatsApp ao corretor quando o cliente envia proposta)
 
 ## 🌊 ONDA 3.5 — Quick wins "Copiloto" — **CONCLUÍDA** (database/13)
 ✅ Copiloto por regras no painel (sem IA externa) · ✅ Score visível (frio/morno/quente) ·
@@ -77,7 +82,7 @@ dashboards do gestor e do corretor, badge no menu)
 - ⬜ Ficha documental com badges ("Matrícula ✅ · IPTU ✅ · Ônus 🟡") + checklist
   jurídico por negociação
 - ⬜ Log de auditoria universal (a autoria na timeline é o embrião)
-- ⬜ Metas por corretor editáveis no painel (tabela Goal pronta)
+- ✅ Metas por corretor editáveis no painel (`/painel/metas`, mês a mês, gerente+)
 
 ## 🌊 ONDA 5 — IA + Automações + BI (o "Copiloto" completo)
 - ⬜ Alertas inteligentes POR CARGO (corretor/gerente/diretor)
@@ -107,12 +112,14 @@ dashboards do gestor e do corretor, badge no menu)
 
 **De desenvolvimento (nesta ordem — frentes A/B do plano de mercado):**
 1. ✅ ~~A2 Tarefas/follow-up~~ e ~~B2 DIMOB~~ (entregues 06/09)
-2. **A3 BI v2 + A4 SEO pro** (sprint 2) · **Domínio próprio por tenant** (sprint 3)
-3. Polimento do Portal do Cliente: `notifyNewProposal` (WhatsApp ao corretor),
-   estado ativo na nav, agendar visita pelo portal
-4. B3 aceite eletrônico → badges documentais → metas editáveis
-5. C1 segurança (rate limit, RLS verificado, LGPD export) · avaliar remoção
-   do Tailwind do build (exige build validado na Vercel)
+2. ✅ ~~Domínio próprio por tenant~~ · ✅ ~~notifyNewProposal~~ · ✅ ~~metas editáveis~~ ·
+   ✅ ~~C1: rate limit + RLS em todas as tabelas~~ (database/27) · ✅ ~~sitemap/robots/feed com URL real~~
+   → **todos com código pronto; falta só o deploy e as contas externas (LANCAMENTO.md)**
+3. **A3 BI v2** (ROI/CAC exigem registrar custo de mídia por origem → decisão de produto + schema) ·
+   **A4 SEO pro** (OG image dinâmica, JSON-LD da imobiliária, canonical por domínio)
+4. B3 aceite eletrônico (Clicksign/ZapSign: conta externa) → badges documentais → log de auditoria universal
+5. LGPD: exportar/excluir dados de um contato sob solicitação · portal: estado ativo na nav,
+   agendar visita pelo portal · avaliar remoção do Tailwind do build (exige build validado na Vercel)
 
 ## Princípios
 1. **Produção toda semana.** 2. **Cliente pagante dita a ordem.** 3. **Supabase/Vercel até

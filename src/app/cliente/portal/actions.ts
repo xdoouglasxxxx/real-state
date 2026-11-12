@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireClientPortal } from "@/lib/perm";
 import { rethrowRedirect } from "@/lib/redirect";
 import { brl } from "@/lib/format";
+import { notifyNewProposal } from "@/lib/notify";
 
 // Espelha a ordem do enum LeadStage — comparação de progresso é por índice
 const STAGE_ORDER = ["NEW", "CONTACTED", "VISIT", "PROPOSAL", "FINANCING", "CONTRACT", "WON", "LOST"];
@@ -23,7 +24,12 @@ export async function submitClientProposal(formData: FormData) {
     // Posse: a negociação tem que ser DESTE cliente, neste tenant, com imóvel
     const lead = await prisma.lead.findFirst({
       where: { id: leadId, organizationId: ctx.org.id, contactId: { in: ctx.contactIds } },
-      select: { id: true, stage: true, contactId: true, propertyId: true },
+      select: {
+        id: true, stage: true, contactId: true, propertyId: true,
+        agent: { select: { phone: true, isActive: true } },
+        property: { select: { title: true } },
+        contact: { select: { name: true } },
+      },
     });
     if (!lead || !lead.propertyId) redirect("/cliente/portal/propostas?erro=lead");
     if (lead!.stage === "WON" || lead!.stage === "LOST") redirect("/cliente/portal/propostas?erro=lead");
@@ -39,6 +45,18 @@ export async function submitClientProposal(formData: FormData) {
         status: "SENT",
       },
     });
+
+    // Avisa o corretor da negociação (WhatsApp). Nunca derruba o fluxo do cliente.
+    const agent = lead!.agent;
+    if (agent && agent.isActive) {
+      await notifyNewProposal({
+        orgName: ctx.org.name,
+        clientName: lead!.contact?.name ?? "Cliente",
+        propertyTitle: lead!.property?.title ?? "Imóvel",
+        amount: brl(amount),
+        agentPhone: agent.phone,
+      }).catch(() => {});
+    }
 
     // Avança o funil quando a proposta chega antes do estágio PROPOSAL;
     // o portal só exibe STAGE_CHANGE (payload.to) — NOTE fica interna ao painel.

@@ -14,7 +14,7 @@ Cliente/Proprietário (v2, set/2026). Stack: Next.js 14 App Router + TypeScript
 Dono: Douglas (Windows + PowerShell).
 
 ## REGRAS INEGOCIÁVEIS
-1. **Banco muda por SQL numerado em `database/`** (hoje até o 23), executado
+1. **Banco muda por SQL numerado em `database/`** (hoje até o 27), executado
    MANUALMENTE pelo Douglas no Supabase — staging antes de produção, e SEMPRE
    antes do push que depende do schema novo (coluna faltando quebra o Prisma
    em produção, inclusive login). Você NÃO altera `prisma/schema.prisma` nem
@@ -88,8 +88,18 @@ Dono: Douglas (Windows + PowerShell).
 - Segredos só no servidor; downloads de documentos por URL assinada
   (`storage.ts`); senha com helpers de `auth.ts` (scrypt + timingSafe) —
   nunca reimplemente.
-- Gap conhecido (backlog C1 do ROADMAP): rate limit em login/createLead e
-  verificação de RLS ativo no Supabase.
+- **Rate limit:** `allow(chave, limite, janelaSeg)` de `src/lib/ratelimit.ts` (Postgres, tabela
+  `RateLimit` do database/27, FORA do schema.prisma, **fail-open**). Já aplicado em login, /criar,
+  formulários públicos, "esqueci senha" e domínio. Nova action pública/sensível → use-o. Formulário
+  público também leva o campo honeypot `website`.
+- **RLS:** database/27 liga RLS em toda tabela de `public`; tabela NOVA criada por SQL deve ligar
+  RLS na própria migração (`ALTER TABLE "X" ENABLE ROW LEVEL SECURITY;`). Prisma ignora (conecta como dono).
+- **Reset de senha:** token stateless em `src/lib/reset-token.ts` (HMAC + impressão da senha atual =
+  uso único). Link montado por `getBaseUrl()` (nunca confie no Host cru).
+- **Domínio por tenant:** só via `src/lib/vercel-domains.ts` (nunca chame a API da Vercel de fora dele);
+  host sempre passa por `normalizeHost` + `isReservedHost`. URL pública do tenant: `tenantBaseUrl()`
+  (`src/lib/public-url.ts`) — nunca monte `slug.ROOT` na mão (em *.vercel.app o subdomínio não existe).
+- Gap conhecido (backlog C1 do ROADMAP): exportação/exclusão de dados pessoais (LGPD) sob solicitação.
 
 ## Regras de negócio vigentes
 - **Rodízio de leads:** imóvel com corretor ATIVO vinculado → lead vai para

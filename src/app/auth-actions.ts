@@ -8,6 +8,10 @@ import {
 } from "@/lib/auth";
 import { isValidEmail } from "@/lib/validators";
 import { rethrowRedirect } from "@/lib/redirect";
+import { allow, getClientIp } from "@/lib/ratelimit";
+import { createResetToken, readResetToken, passFingerprint } from "@/lib/reset-token";
+import { sendEmail, mailEnabled, escapeHtml } from "@/lib/mailer";
+import { getBaseUrl } from "@/lib/base-url";
 
 const slugify = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -27,6 +31,8 @@ export async function createTenant(formData: FormData) {
   const plan = String(formData.get("plan") ?? "STARTER");
 
   if (!name || !isValidEmail(email) || pass.length < 6) redirect("/criar?erro=campos");
+  // Anti-spam de cadastro: 5 imobiliárias por hora por IP (fail-open).
+  if (!(await allow(`criar:ip:${getClientIp()}`, 5, 3600))) redirect("/criar?erro=limite");
 
   try {
     // slug único
@@ -78,6 +84,12 @@ export async function login(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const pass = String(formData.get("password") ?? "");
   if (!email || !pass) redirect("/login?erro=1");
+
+  // Anti força-bruta (janela de 15 min, fail-open): por IP e por e-mail.
+  if (
+    !(await allow(`login:ip:${getClientIp()}`, 30, 900)) ||
+    !(await allow(`login:email:${email.slice(0, 160)}`, 10, 900))
+  ) redirect("/login?erro=limite");
 
   let dest = "/painel";
   try {
@@ -190,6 +202,88 @@ export async function changePassword(formData: FormData) {
     redirect(`${base}?erro=interno`);
   }
   redirect(`${base}?salvo=1`);
+}
+
+const MIN_NEW_PASS = 8;
+
+/** "Esqueci minha senha": envia link de redefinição (válido 1h, uso único).
+ *  A resposta é a MESMA exista ou não o e-mail (não revela quem tem conta). */
+export async function requestPasswordReset(formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase().slice(0, 160);
+  if (!isValidEmail(email)) redirect("/esqueci?erro=email");
+  if (!mailEnabled()) redirect("/esqueci?erro=indisponivel");
+
+  // Anti e-mail-bombing: 6/h por IP e 3/h por endereço (fail-open).
+  if (
+    !(await allow(`reset:ip:${getClientIp()}`, 6, 3600)) ||
+    !(await allow(`reset:email:${email}`, 3, 3600))
+  ) redirect("/esqueci?erro=limite");
+
+  try {
+    const users = await prisma.user.findMany({
+      where: { email, isActive: true, role: { in: LOGIN_ROLES as any } },
+      include: { organization: { select: { name: true } } },
+      orderBy: { createdAt: "asc" },
+      take: 3,
+    });
+    if (users.length) {
+      const base = await getBaseUrl();
+      for (const u of users) {
+        const link = `${base}/redefinir?t=${encodeURIComponent(createResetToken(u.id, u.passHash))}`;
+        const org = u.organization.name;
+        await sendEmail({
+          to: email,
+          subject: `Redefinir sua senha — ${org}`,
+          text: `Recebemos um pedido para redefinir a senha do seu acesso a ${org}.\n\nAbra o link abaixo (válido por 1 hora, uso único):\n${link}\n\nSe não foi você, ignore este e-mail: sua senha continua a mesma.`,
+          html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;color:#222">
+            <h2 style="margin:0 0 12px">Redefinir senha</h2>
+            <p>Recebemos um pedido para redefinir a senha do seu acesso a <strong>${escapeHtml(org)}</strong>.</p>
+            <p><a href="${escapeHtml(link)}" style="display:inline-block;background:#c6a15b;color:#17130e;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:bold">Criar nova senha</a></p>
+            <p style="font-size:13px;color:#666">O link vale por 1 hora e só funciona uma vez. Se não foi você, ignore este e-mail: sua senha continua a mesma.</p>
+          </div>`,
+        });
+      }
+    }
+  } catch (e) {
+    rethrowRedirect(e);
+    console.error("requestPasswordReset:", e);
+  }
+  redirect("/esqueci?enviado=1");
+}
+
+/** Define a nova senha a partir do link do e-mail. */
+export async function resetPassword(formData: FormData) {
+  const token = String(formData.get("token") ?? "");
+  const next = String(formData.get("next") ?? "").slice(0, 128);
+  const confirm = String(formData.get("confirm") ?? "").slice(0, 128);
+  const back = `/redefinir?t=${encodeURIComponent(token)}`;
+
+  const parsed = readResetToken(token);
+  if (!parsed) redirect("/redefinir?erro=invalido");
+  if (next.length < MIN_NEW_PASS) redirect(`${back}&erro=curta`);
+  if (next !== confirm) redirect(`${back}&erro=confirma`);
+  if (!(await allow(`reset:apply:${getClientIp()}`, 10, 3600))) redirect(`${back}&erro=limite`);
+
+  try {
+    const user = await prisma.user.findFirst({
+      where: { id: parsed!.userId, isActive: true, role: { in: LOGIN_ROLES as any } },
+      include: { organization: { select: { adminEmail: true } } },
+    });
+    // Impressão da senha atual diferente = link já usado (ou senha trocada depois).
+    if (!user || passFingerprint(user.passHash) !== parsed!.fp) redirect("/redefinir?erro=invalido");
+
+    const passHash = hashPassword(next);
+    await prisma.user.update({ where: { id: user!.id }, data: { passHash } });
+    // Mantém o login legado sincronizado quando é o admin principal (igual changePassword).
+    if (user!.organization.adminEmail?.toLowerCase() === user!.email.toLowerCase()) {
+      await prisma.organization.update({ where: { id: user!.organizationId }, data: { panelPassHash: passHash } });
+    }
+  } catch (e) {
+    rethrowRedirect(e);
+    console.error("resetPassword:", e);
+    redirect(`${back}&erro=interno`);
+  }
+  redirect("/login?ok=senha");
 }
 
 export async function logout() {

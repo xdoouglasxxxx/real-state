@@ -7,6 +7,7 @@ import { getTenant } from "@/lib/tenant";
 import { notifyNewLead } from "@/lib/notify";
 import { pickAgentRoundRobin } from "@/lib/assign";
 import { calcInitialScore } from "@/lib/score";
+import { allow, getClientIp } from "@/lib/ratelimit";
 
 /**
  * Cria (ou reaproveita) o Contact e abre um Lead com a Activity inicial.
@@ -103,7 +104,11 @@ export async function submitVisitInquiry(formData: FormData) {
   // M2: slug vem do FormData — sanitizar para [a-z0-9-] antes de usar em redirect.
   const slug = String(formData.get("slug") ?? "").replace(/[^a-z0-9-]/g, "").slice(0, 80);
   const ip = headers().get("x-forwarded-for")?.split(",")[0]?.trim() ?? headers().get("x-real-ip") ?? null;
+  // Honeypot: bots preenchem o campo escondido — finge sucesso e não cria nada.
+  if (String(formData.get("website") ?? "")) redirect(`/imovel/${slug}?enviado=1`);
   if (!name || !phone || !lgpdConsent) redirect(`/imovel/${slug}?erro=1`);
+  // Anti-spam: 10 contatos / 10 min por IP (fail-open).
+  if (!(await allow(`lead:ip:${getClientIp()}`, 10, 600))) redirect(`/imovel/${slug}?erro=limite`);
   await createLead({ name, phone, message, propertyId, wantSimilar, kind: "visit", redirectTo: `/imovel/${slug}?enviado=1`, lgpdConsent, lgpdIp: ip });
 }
 
@@ -114,6 +119,8 @@ export async function submitSellInquiry(formData: FormData) {
   const type = String(formData.get("type") ?? "").slice(0, 30);
   const lgpdConsent = formData.get("lgpd") === "on";
   const ip = headers().get("x-forwarded-for")?.split(",")[0]?.trim() ?? headers().get("x-real-ip") ?? null;
+  if (String(formData.get("website") ?? "")) redirect("/vender?enviado=1");
   if (!name || !phone || !address || !lgpdConsent) redirect("/vender?erro=1");
+  if (!(await allow(`lead:ip:${getClientIp()}`, 10, 600))) redirect("/vender?erro=limite");
   await createLead({ name, phone, message: `Quer vender: ${address} (${type})`, kind: "sell", redirectTo: "/vender?enviado=1", lgpdConsent, lgpdIp: ip });
 }
