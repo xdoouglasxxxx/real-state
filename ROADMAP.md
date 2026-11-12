@@ -103,6 +103,9 @@ dashboards do gestor e do corretor, badge no menu)
 
 ## 🎯 PRÓXIMOS PASSOS
 
+> **Plano ativo, do mais fácil ao mais difícil, com critérios de "pronto" e caixas de marcar:
+> veja `CHECKPOINTS.md`.** (CP1 mapa → CP2 visual → CP3 dashboard → CP4 financeiro → CP5-7 agente de IA.)
+
 **Do Douglas (operacional):**
 1. ✅ ~~Limpar dados de teste em produção~~ (feito 06/09)
 2. Cadastrar a URL do feed nos painéis dos portais (ZAP/Canal Pro etc. —

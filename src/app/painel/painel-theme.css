@@ -1,0 +1,95 @@
+/* =====================================================================
+   CP2 — VISUAL B (grafite) — SÓ PARA /painel/*
+   Importado em src/app/painel/layout.tsx. Nada aqui vale fora de `.panel`,
+   então o site público e o portal do cliente não mudam.
+
+   Como funciona: `.panel` redefine os tokens neutros (fundo, cartões, texto,
+   bordas); as regras antigas (.kpi, .ficha-box, .table...) já usam esses tokens
+   e se re-tematizam sozinhas. A cor da MARCA do tenant (--brass) é definida em
+   linha pelo layout, já clareada o mínimo para ter contraste AA no grafite
+   (src/lib/contrast.ts). Toda regra abaixo leva `.panel` na frente de propósito:
+   com isso ela vence as regras do site sem depender da ordem de carregamento.
+   ===================================================================== */
+
+.panel {
+  --ink: #0d0f12;          /* fundo da página e dos campos */
+  --umber: #161a21;        /* cartões */
+  --cream: #e9ecf1;        /* texto */
+  --stone: #9ba4b2;        /* texto secundário */
+  --line: #232831;         /* bordas */
+  --panel-side: #11141a;   /* menu lateral */
+  --panel-hi: #1d222b;     /* hover / item ativo / célula destacada */
+  --panel-track: #262b35;  /* trilho de barras */
+  --panel-strong: #ffffff; /* números e títulos de destaque */
+  --font-display: "Inter";
+  --font-body: "Inter";
+  background: var(--ink);
+  color: var(--cream);
+  font-family: var(--font-body), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ---------- títulos ---------- */
+.panel h1, .panel h2, .panel h3 { font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
+.panel .panel-main h1 { font-size: 1.75rem; margin-bottom: 1.4rem; }
+.panel .ficha-box h2, .panel .pform section h2 { font-size: 1.05rem; margin-bottom: 1rem; }
+
+/* ---------- menu lateral ---------- */
+.panel .panel-side { background: var(--panel-side); }
+.panel .panel-side .logo { font-weight: 600; font-size: 1.05rem; letter-spacing: .02em; color: var(--cream); }
+.panel .logo em { font-style: normal; color: var(--brass); }
+.panel .panel-side .panel-link {
+  display: flex; align-items: center; font-size: .92rem; letter-spacing: 0; text-transform: none;
+  opacity: 1; color: var(--stone); padding: .6rem .8rem; border-radius: 8px;
+}
+.panel .panel-side .panel-link::before {
+  content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; margin-right: .65rem; background: transparent;
+}
+.panel .panel-side .panel-link:hover { background: var(--panel-hi); color: var(--cream); }
+.panel .panel-side .panel-link-on { background: var(--panel-hi); color: var(--panel-strong); font-weight: 600; }
+.panel .panel-side .panel-link-on::before { background: var(--brass); }
+.panel .panel-side .panel-logout { color: #e39a8d; }
+.panel .nav-badge { margin-left: auto; color: var(--ink); }
+.panel .panel-slug { font-size: .75rem; letter-spacing: 0; }
+
+/* ---------- cartões e indicadores ---------- */
+.panel .kpi, .panel .ficha-box, .panel .kcol, .panel .pform section { border-radius: 12px; }
+.panel .kpis { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.panel .kpi { padding: 1.1rem 1.25rem; }
+.panel .kpi strong {
+  font-weight: 600; color: var(--panel-strong); line-height: 1.15;
+  font-size: clamp(1.5rem, 1rem + 1.1vw, 1.9rem);
+}
+.panel .kpi span { font-size: .85rem; letter-spacing: 0; text-transform: none; }
+.panel .kpi .delta { font-size: .8rem; }
+.panel .kpi-hint { font-size: .78rem; }
+.panel .meta-bar { background: var(--panel-track); }
+.panel .ficha-box p { color: #cdd3dc; }
+.panel .timeline p { color: #c3cad4; }
+
+/* ---------- alertas (ícone desenhado no lugar do emoji) ---------- */
+.panel .alert-li { align-items: flex-start; }
+.panel .alert-ic { display: inline-flex; flex: none; margin-top: .15rem; color: var(--brass); }
+
+/* ---------- tabelas, selos, kanban ---------- */
+.panel .table th { font-size: .8rem; letter-spacing: 0; text-transform: none; font-weight: 500; }
+.panel .table td { border-bottom: 1px solid var(--line); }
+.panel .pill { font-size: .78rem; letter-spacing: 0; text-transform: none; color: var(--brass); }
+.panel .kcol h3 { font-size: .85rem; letter-spacing: 0; text-transform: none; font-weight: 600; font-family: var(--font-body), sans-serif; }
+.panel .kcard { border-radius: 8px; }
+.panel .kcard em { font-size: .75rem; letter-spacing: .02em; text-transform: none; color: var(--brass); }
+
+/* ---------- botões e formulários ---------- */
+.panel .btn-solid, .panel .btn-outline, .panel .btn-dark {
+  font-size: .9rem; letter-spacing: 0; text-transform: none; padding: .65rem 1.2rem; border-radius: 10px; font-weight: 600;
+}
+.panel .btn-solid:hover { background: var(--brass); filter: brightness(1.12); }
+.panel .pgrid label, .panel .pform-tour { font-size: .85rem; letter-spacing: 0; text-transform: none; color: var(--stone); }
+.panel .pgrid .check { color: var(--cream); }
+.panel .back { font-size: .9rem; letter-spacing: 0; text-transform: none; color: var(--brass); }
+.panel .ok { color: var(--brass); }
+
+/* ---------- celular: menu em linha ---------- */
+@media (max-width: 900px) {
+  .panel .panel-side .panel-link { padding: .5rem .7rem; }
+  .panel .nav-badge { margin-left: .45rem; }
+}

@@ -3,13 +3,14 @@ import { getDashboard, getAgentDashboard, getDashboardIntel, getAgentCopilot, ge
 import Link from "next/link";
 import { brl, brlCompact } from "@/lib/format";
 import { toggleTask } from "./leads/actions";
+import AlertIcon from "@/components/painel/AlertIcon";
 
 /** Lista de tarefas do dia/atrasadas — usada no painel do gestor e do corretor. */
 function TasksBox({ tasks }: { tasks: any[] }) {
   if (tasks.length === 0) return null;
   return (
     <section className="ficha-box" style={{ marginBottom: "1.4rem", borderColor: "var(--brass)" }}>
-      <h2>📌 Tarefas de hoje e atrasadas</h2>
+      <h2>Tarefas de hoje e atrasadas</h2>
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: ".45rem" }}>
         {tasks.map((t: any) => {
           const overdue = +new Date(t.dueAt) < Date.now();
@@ -102,7 +103,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { nega
         {(pilot.top.length > 0 || pilot.coolingCount > 0 || pilot.hotCommission > 0) && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.2rem", margin: "1.4rem 0" }}>
             <section className="ficha-box">
-              <h2>⚡ Para atacar hoje</h2>
+              <h2>Para atacar hoje</h2>
               {pilot.top.length === 0 && <p style={{ color: "var(--stone)" }}>Sem leads ativos na carteira.</p>}
               {pilot.top.map((l: any) => {
                 const t = leadTemp(l.score);
@@ -120,8 +121,8 @@ export default async function Dashboard({ searchParams }: { searchParams: { nega
             </section>
 
             <section className="ficha-box" style={pilot.coolingCount > 0 ? { borderColor: "var(--brass)" } : undefined}>
-              <h2>🥶 Esfriando ({pilot.coolingCount})</h2>
-              {pilot.coolingCount === 0 && <p style={{ color: "var(--stone)" }}>Ninguém esfriando — carteira em dia. ✨</p>}
+              <h2>Esfriando ({pilot.coolingCount})</h2>
+              {pilot.coolingCount === 0 && <p style={{ color: "var(--stone)" }}>Ninguém esfriando — carteira em dia.</p>}
               {pilot.cooling.map((l: any) => (
                 <p key={l.id} style={{ marginBottom: ".5rem", fontSize: ".92rem" }}>
                   <Link href={`/painel/leads/${l.id}`} style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>{l.contact?.name}</Link>
@@ -133,7 +134,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { nega
             </section>
 
             <section className="ficha-box">
-              <h2>💰 Em jogo agora</h2>
+              <h2>Em jogo agora</h2>
               <div className="kpi" style={{ border: "none", padding: 0 }}>
                 <strong>{brlCompact(pilot.hotCommission)}</strong>
                 <span>comissão potencial em negociação</span>
@@ -179,21 +180,21 @@ export default async function Dashboard({ searchParams }: { searchParams: { nega
 
       {/* ---- Requer sua atenção hoje ---- */}
       <section className="ficha-box" style={{ marginBottom: "1.4rem", borderColor: intel.alerts.length ? "var(--brass)" : undefined }}>
-        <h2>⚡ Requer sua atenção hoje</h2>
+        <h2>Requer sua atenção hoje</h2>
         {intel.alerts.length === 0 && (
-          <p style={{ color: "var(--stone)" }}>Tudo em dia — nenhum contrato parado, lead esfriando ou imóvel encalhado. ✨</p>
+          <p style={{ color: "var(--stone)" }}>Tudo em dia — nenhum contrato parado, lead esfriando ou imóvel encalhado.</p>
         )}
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: ".45rem" }}>
           {intel.alerts.map((a: any) => (
             <li key={a.text}>
               <Link href={a.href} className="alert-li">
-                <span>{a.icon}</span><span style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>{a.text}</span>
+                <span className="alert-ic"><AlertIcon emoji={a.icon} /></span><span style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>{a.text}</span>
               </Link>
             </li>
           ))}
           {gap > 0 && d.meta > 0 && (
             <li className="alert-li" style={{ color: "var(--stone)" }}>
-              <span>🎯</span>
+              <span className="alert-ic"><AlertIcon emoji="🎯" /></span>
               <span>
                 Faltam {brl(gap)} para a meta. No ritmo atual o mês fecha em {paceLabel}{earlyMonth ? " (início de mês — projeção ainda instável)" : ` (${brl(paceProjection)})`};
                 pipeline ponderado cobre {brl(intel.pipeline)}{intel.pipeline < gap ? " — abaixo do necessário: priorize propostas e assinaturas" : " — dá para bater, é fechar o que está na mesa"}.
@@ -279,7 +280,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { nega
               <tbody>
                 {intel.ranking.map((r: any, i: number) => (
                   <tr key={r.name}>
-                    <td>{["🥇", "🥈", "🥉"][i] ?? `${i + 1}º`}</td>
+                    <td>{`${i + 1}º`}</td>
                     <td>{r.name}</td><td>{r.visits}</td><td>{r.won}</td>
                   </tr>
                 ))}

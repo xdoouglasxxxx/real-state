@@ -6,6 +6,9 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getSidebarBadges } from "@/lib/data";
 import { logout } from "@/app/auth-actions";
+import NavLink from "@/components/painel/NavLink";
+import { readableAccent } from "@/lib/contrast";
+import "./painel-theme.css";
 
 export const metadata: Metadata = { title: "Painel", robots: { index: false, follow: false } };
 
@@ -52,25 +55,26 @@ export default async function PainelLayout({ children }: { children: React.React
 
   const [first, ...rest] = org.name.toUpperCase().split(" ");
   return (
-    <div className="panel">
+    <div className="panel" style={{ "--brass": readableAccent(org.themeBrass) } as React.CSSProperties}>
       <aside className="panel-side">
         <Link className="logo" href="/painel">{first} <em>{rest.join(" ") || "ESTATE"}</em></Link>
         <span className="panel-slug">{org.slug}.{process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? ""}</span>
 
-        <Link className="panel-link" href="/painel">{isAgent ? "Meu painel" : "Dashboard"}<Badge n={badges.tasksDue} title="Tarefas de hoje e atrasadas" /></Link>
-        <Link className="panel-link" href="/painel/leads">{isAgent ? "Meus leads" : "Leads"}<Badge n={badges.coldLeads} title="Leads esfriando (72h sem contato)" /></Link>
-        <Link className="panel-link" href="/painel/agenda">{isAgent ? "Minha agenda" : "Agenda"}<Badge n={badges.visitsToday} title="Visitas hoje" /></Link>
-        <Link className="panel-link" href="/painel/imoveis">Imóveis</Link>
-        {!isAgent && <Link className="panel-link" href="/painel/corretores">Corretores</Link>}
-        {!isAgent && <Link className="panel-link" href="/painel/metas">Metas</Link>}
-        {!isAgent && <Link className="panel-link" href="/painel/documentos">Documentos</Link>}
-        {!isAgent && <Link className="panel-link" href="/painel/locacao">Locação</Link>}
-        {isAdmin && <Link className="panel-link" href="/painel/financeiro">Financeiro</Link>}
-        {isAdmin && <Link className="panel-link" href="/painel/usuarios">Usuários</Link>}
-        {isAdmin && <Link className="panel-link" href="/painel/assinatura">Assinatura</Link>}
-        {isAdmin && <Link className="panel-link" href="/painel/modelos">Modelos</Link>}
-        {isAdmin && <Link className="panel-link" href="/painel/configuracoes">Configurações</Link>}
-        <Link className="panel-link" href="/painel/conta">Minha conta</Link>
+        <NavLink href="/painel">{isAgent ? "Meu painel" : "Dashboard"}<Badge n={badges.tasksDue} title="Tarefas de hoje e atrasadas" /></NavLink>
+        <NavLink href="/painel/leads">{isAgent ? "Meus leads" : "Leads"}<Badge n={badges.coldLeads} title="Leads esfriando (72h sem contato)" /></NavLink>
+        <NavLink href="/painel/agenda">{isAgent ? "Minha agenda" : "Agenda"}<Badge n={badges.visitsToday} title="Visitas hoje" /></NavLink>
+        <NavLink href="/painel/imoveis">Imóveis</NavLink>
+        <NavLink href="/painel/mapa">Mapa</NavLink>
+        {!isAgent && <NavLink href="/painel/corretores">Corretores</NavLink>}
+        {!isAgent && <NavLink href="/painel/metas">Metas</NavLink>}
+        {!isAgent && <NavLink href="/painel/documentos">Documentos</NavLink>}
+        {!isAgent && <NavLink href="/painel/locacao">Locação</NavLink>}
+        {isAdmin && <NavLink href="/painel/financeiro">Financeiro</NavLink>}
+        {isAdmin && <NavLink href="/painel/usuarios">Usuários</NavLink>}
+        {isAdmin && <NavLink href="/painel/assinatura">Assinatura</NavLink>}
+        {isAdmin && <NavLink href="/painel/modelos">Modelos</NavLink>}
+        {isAdmin && <NavLink href="/painel/configuracoes">Configurações</NavLink>}
+        <NavLink href="/painel/conta">Minha conta</NavLink>
 
         <Link className="panel-link" href="/" style={{ marginTop: "auto" }}>← Ver site</Link>
         <form action={logout}>

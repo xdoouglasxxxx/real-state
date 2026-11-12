@@ -35,6 +35,15 @@ Dono: Douglas (Windows + PowerShell).
    - **PROIBIDO hex arbitrário** (`bg-[#c6a15b]`, `text-[#333]`): quebra o
      white-label. Cor nova = token no `:root` do globals.css + tailwind.config.
    - PROIBIDO Shadcn, lucide ou qualquer lib de UI/ícones sem aprovação.
+   - **Tema do painel** (grafite): `src/app/painel/painel-theme.css`, tudo escopado em `.panel`
+     (site público e portal do cliente não mudam). Cor neutra nova = token no bloco `.panel` daquele
+     arquivo. A cor da marca do tenant entra por `--brass`, definido em linha no `painel/layout.tsx`
+     via `readableAccent()` (`src/lib/contrast.ts`), que clareia o mínimo para dar AA. Nunca use a
+     cor da marca crua como texto no painel — use `var(--brass)` (já legível). Regra nova do painel
+     leva o prefixo `.panel` (vence o CSS do site sem depender da ordem de carregamento).
+   - `.panel-link` também é usado como "botão discreto" (☐ de tarefas, salas da vistoria); o estilo
+     de MENU vive em `.panel .panel-side .panel-link` — não o amplie para fora do `.panel-side`.
+   - Sem emoji colorido como ícone em tela nova: use SVG (`AlertIcon` é o modelo).
 4. **Push é manual por padrão** — pare após commitar; só dê push com ordem
    explícita do Douglas na conversa (aí pode sincronizar `main` e
    `staging-maison`, local e origin, por fast-forward). Commits temáticos,
