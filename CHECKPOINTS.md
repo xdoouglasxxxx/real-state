@@ -16,7 +16,7 @@ depende de terceiros.
 | **2** | Visual B (grafite) no painel | P–M | CP0 | 🔶 código pronto |
 | **3** | Dashboard interativo (período, corretor, funil, origem) | M | CP2 (recomendado) | 🔶 código pronto |
 | **4** | Financeiro com gráficos | M | CP3 (reaproveita os gráficos) | 🔶 código pronto |
-| **5** | Agente IA, fase 1: resumo do dia por regras (sem IA externa) | M | CP1 | ⬜ |
+| **5** | Agente IA, fase 1: resumo do dia por regras (sem IA externa) | M | CP1 | 🔶 código pronto |
 | **6** | Agente IA, fase 2: chat com IA real | G | CP5 e T6 | ⬜ |
 | **7** | Agente IA, fase 3: respostas automáticas no WhatsApp | GG | CP6 e T2 | ⬜ |
 
@@ -134,7 +134,7 @@ Pronto quando:
 - [ ] Continua restrito a administrador (como hoje).
 - [ ] Valores usam `Decimal` como string (regra do `CLAUDE.md`).
 
-## CP5 — Agente IA, fase 1: resumo do dia por regras  ·  M  ·  ⬜
+## CP5 — Agente IA, fase 1: resumo do dia por regras  ·  M  ·  🔶
 
 Entrega: tela **Agente** com as sugestões do dia **geradas por regras** (nenhuma IA externa):
 contrato parado, imóveis sem visita (com atalho para o **mapa já filtrado**), leads sem
@@ -144,6 +144,10 @@ por modelo; **Aprovar** abre o WhatsApp com a mensagem pronta (`wa.me`). Nada sa
 
 Por que antes da IA real: 80% do valor percebido do "copiloto" são consultas bem feitas
 (princípio nº 5 do `ROADMAP.md`) — e sai sem custo, sem risco de privacidade.
+
+Arquivos: `src/lib/agent-day.ts` (regras e "feito/dispensar"), `agent-drafts.ts` (rascunhos, telefone, link do
+WhatsApp), `src/app/painel/agente/` (tela e ação), item "Agente do dia" no menu e o atalho `?filtro=parado` do mapa.
+Mexe também em `toggleTask` (aceita `back=agente`). Regras, o que ele não faz e consultas de conferência: `AGENTE.md`.
 
 Pronto quando:
 - [ ] Cada sugestão corresponde a dado real (conferido com o dashboard).

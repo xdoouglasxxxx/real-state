@@ -44,6 +44,11 @@ Dono: Douglas (Windows + PowerShell).
    - `.panel-link` também é usado como "botão discreto" (☐ de tarefas, salas da vistoria); o estilo
      de MENU vive em `.panel .panel-side .panel-link` — não o amplie para fora do `.panel-side`.
    - Sem emoji colorido como ícone em tela nova: use SVG (`AlertIcon` é o modelo).
+   - **Agente do dia** (`src/lib/agent-day.ts`, `agent-drafts.ts`): regras sobre dados do sistema, SEM IA externa.
+     O sistema **nunca envia** mensagem: só gera o rascunho e o link `wa.me`. Rascunho usa só o primeiro nome e o
+     título do imóvel (nunca sobrenome/telefone/e-mail). Toda sugestão resolvida passa por `resolveSuggestion`
+     (posse + conferência da entidade + sem duplicata). Corretor só vê o dele. Mudou uma regra do dashboard,
+     do selo do menu ou do mapa? Mude a do agente junto. Detalhes: `AGENTE.md`.
    - **Gráfico do Financeiro** (`src/lib/finance-chart.ts`): usa a MESMA base de caixa (`paidAt`) e a MESMA
      janela de mês dos KPIs/DRE de `getFinance` — mexeu em uma, mexa na outra, senão o gráfico deixa de bater
      com os KPIs. Consulta nova entra lá com o `db` por parâmetro e ganha caso em

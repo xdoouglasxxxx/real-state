@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { requirePanel } from "@/lib/perm";
 import { prisma } from "@/lib/prisma";
-import PropertyMap, { type MapItem, type MapGroup } from "@/components/painel/PropertyMap";
+import PropertyMap, { type MapItem, type MapGroup, type MapFilter } from "@/components/painel/PropertyMap";
 
 export const metadata: Metadata = { title: "Mapa dos imóveis" };
 export const dynamic = "force-dynamic";
@@ -16,7 +16,11 @@ const LABEL: Record<string, string> = {
   FOR_SALE: "À venda", EXCLUSIVE: "Exclusivo", RESERVED: "Reservado", SOLD: "Vendido", RENTED: "Alugado",
 };
 
-export default async function Mapa() {
+const FILTROS: MapFilter[] = ["disp", "res", "vend", "parado"];
+
+export default async function Mapa({ searchParams }: { searchParams: { filtro?: string } }) {
+  // atalho vindo do Agente do dia: /painel/mapa?filtro=parado abre o mapa já filtrado
+  const initialFilter: MapFilter = FILTROS.includes(searchParams.filtro as MapFilter) ? (searchParams.filtro as MapFilter) : "todos";
   const { org } = await requirePanel();
 
   let items: MapItem[] = [];
@@ -65,6 +69,7 @@ export default async function Mapa() {
         <h1>Mapa dos imóveis</h1>
       </div>
       <PropertyMap
+        initialFilter={initialFilter}
         items={items}
         tileTemplate={process.env.NEXT_PUBLIC_MAP_TILE_URL || OSM}
         attribution={process.env.NEXT_PUBLIC_MAP_ATTRIBUTION || "© OpenStreetMap contributors"}

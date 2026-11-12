@@ -27,7 +27,8 @@ export type MapItem = {
   stale: boolean;
 };
 type Placed = MapItem & { lat: number; lng: number };
-type Filter = "todos" | MapGroup | "parado";
+export type MapFilter = "todos" | MapGroup | "parado";
+type Filter = MapFilter;
 
 const CHIPS: { id: Filter; label: string }[] = [
   { id: "todos", label: "Todos" },
@@ -38,9 +39,9 @@ const CHIPS: { id: Filter; label: string }[] = [
 ];
 
 export default function PropertyMap({
-  items, tileTemplate, attribution,
-}: { items: MapItem[]; tileTemplate: string; attribution: string }) {
-  const [filter, setFilter] = useState<Filter>("todos");
+  items, tileTemplate, attribution, initialFilter = "todos",
+}: { items: MapItem[]; tileTemplate: string; attribution: string; initialFilter?: MapFilter }) {
+  const [filter, setFilter] = useState<Filter>(initialFilter);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoverKey, setHoverKey] = useState<string | null>(null);
   const [override, setOverride] = useState<View | null>(null);

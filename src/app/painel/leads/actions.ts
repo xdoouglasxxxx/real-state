@@ -261,7 +261,8 @@ export async function createTask(formData: FormData) {
 export async function toggleTask(formData: FormData) {
   const ctx = await requirePanel();
   const id = String(formData.get("id") ?? "");
-  const back = String(formData.get("back") ?? "") === "painel" ? "/painel" : null;
+  const backTo = String(formData.get("back") ?? "");
+  const back = backTo === "painel" ? "/painel" : backTo === "agente" ? "/painel/agente" : null;
   let leadId = "";
   try {
     const task = await prisma.task.findFirst({
@@ -279,6 +280,7 @@ export async function toggleTask(formData: FormData) {
     console.error("toggleTask:", e);
   }
   revalidatePath("/painel");
+  revalidatePath("/painel/agente");
   if (back) redirect(back);
   revalidatePath(`/painel/leads/${leadId}`);
   redirect(`/painel/leads/${leadId}`);

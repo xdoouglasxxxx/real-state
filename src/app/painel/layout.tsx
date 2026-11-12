@@ -61,6 +61,7 @@ export default async function PainelLayout({ children }: { children: React.React
         <span className="panel-slug">{org.slug}.{process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? ""}</span>
 
         <NavLink href="/painel">{isAgent ? "Meu painel" : "Dashboard"}<Badge n={badges.tasksDue} title="Tarefas de hoje e atrasadas" /></NavLink>
+        <NavLink href="/painel/agente">Agente do dia</NavLink>
         <NavLink href="/painel/leads">{isAgent ? "Meus leads" : "Leads"}<Badge n={badges.coldLeads} title="Leads esfriando (72h sem contato)" /></NavLink>
         <NavLink href="/painel/agenda">{isAgent ? "Minha agenda" : "Agenda"}<Badge n={badges.visitsToday} title="Visitas hoje" /></NavLink>
         <NavLink href="/painel/imoveis">Imóveis</NavLink>
