@@ -15,7 +15,7 @@ depende de terceiros.
 | **1** | Mapa dos imóveis | P | CP0 | 🔶 aplicado; falta validar |
 | **2** | Visual B (grafite) no painel | P–M | CP0 | 🔶 código pronto |
 | **3** | Dashboard interativo (período, corretor, funil, origem) | M | CP2 (recomendado) | 🔶 código pronto |
-| **4** | Financeiro com gráficos | M | CP3 (reaproveita os gráficos) | ⬜ |
+| **4** | Financeiro com gráficos | M | CP3 (reaproveita os gráficos) | 🔶 código pronto |
 | **5** | Agente IA, fase 1: resumo do dia por regras (sem IA externa) | M | CP1 | ⬜ |
 | **6** | Agente IA, fase 2: chat com IA real | G | CP5 e T6 | ⬜ |
 | **7** | Agente IA, fase 3: respostas automáticas no WhatsApp | GG | CP6 e T2 | ⬜ |
@@ -117,11 +117,16 @@ Pronto quando:
 - [ ] Período sem dados mostra estado vazio, sem quebrar nem dividir por zero.
 - [ ] Funciona no celular.
 
-## CP4 — Financeiro com gráficos  ·  M  ·  ⬜
+## CP4 — Financeiro com gráficos  ·  M  ·  🔶
 
 Entrega: fluxo de caixa de 10–12 meses (receitas × despesas + linha de saldo) com tooltip e
 seleção de mês; cartões do mês escolhido; receitas por tipo. Reaproveita os componentes de
 gráfico do CP3.
+
+Arquivos: `src/lib/finance-chart.ts` (série e escala), `CashFlowChart` (gráfico), `DonutCard` (rosca
+genérica, que o dashboard do CP3 também usa), `financeiro/page.tsx`. O `data.ts` não foi tocado. O gráfico
+usa a mesma base de caixa e a mesma janela de mês dos KPIs/DRE. Detalhes, a questão antiga de fuso e a
+consulta de conferência: `FINANCEIRO-GRAFICOS.md`.
 
 Pronto quando:
 - [ ] Os totais batem com a tabela e com a exportação atuais do financeiro.

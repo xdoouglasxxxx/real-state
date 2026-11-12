@@ -75,5 +75,5 @@ export function makeFakeDb(t: Tables) {
       return Array.from(g, ([k, n]) => ({ [by[0]]: k, _count: n }));
     },
   });
-  return { lead: model("lead"), visit: model("visit"), property: model("property"), contract: model("contract"), proposal: model("proposal"), goal: model("goal"), activity: model("activity"), agent: model("agent") };
+  return { lead: model("lead"), visit: model("visit"), property: model("property"), contract: model("contract"), proposal: model("proposal"), goal: model("goal"), activity: model("activity"), agent: model("agent"), financeEntry: model("financeEntry") };
 }

@@ -44,6 +44,10 @@ Dono: Douglas (Windows + PowerShell).
    - `.panel-link` também é usado como "botão discreto" (☐ de tarefas, salas da vistoria); o estilo
      de MENU vive em `.panel .panel-side .panel-link` — não o amplie para fora do `.panel-side`.
    - Sem emoji colorido como ícone em tela nova: use SVG (`AlertIcon` é o modelo).
+   - **Gráfico do Financeiro** (`src/lib/finance-chart.ts`): usa a MESMA base de caixa (`paidAt`) e a MESMA
+     janela de mês dos KPIs/DRE de `getFinance` — mexeu em uma, mexa na outra, senão o gráfico deixa de bater
+     com os KPIs. Consulta nova entra lá com o `db` por parâmetro e ganha caso em
+     `tests/unit/finance-chart.test.ts`. Detalhes: `FINANCEIRO-GRAFICOS.md`.
    - **Dashboard do gestor** (`src/lib/dashboard.ts` + `periods.ts`/`funnel.ts`/`dash-calc.ts`):
      período e corretor vêm da URL e são **validados** (período inválido → mês; corretor tem que ser da
      imobiliária). Limites de período em horário de Brasília (`periodRange`), nunca `new Date()` cru.

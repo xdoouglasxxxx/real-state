@@ -4,6 +4,10 @@ import { getFinance, getAgents, getPanelProperties, FIN_CATEGORY } from "@/lib/d
 import { brl, brlCompact } from "@/lib/format";
 import { createFinanceEntry, toggleFinancePaid, payCommission, createCommission } from "./actions";
 import MoneyInput from "@/components/painel/MoneyInput";
+import CashFlowChart from "@/components/painel/CashFlowChart";
+import DonutCard from "@/components/painel/DonutCard";
+import { prisma } from "@/lib/prisma";
+import { getFinanceSeries, buildScale, type FinanceMonth } from "@/lib/finance-chart";
 
 export const dynamic = "force-dynamic";
 
@@ -30,8 +34,8 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
   const now = new Date();
   const [y, m] = (searchParams.mes ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`)
     .split("-").map(Number);
-  const year = y || now.getFullYear();
-  const month = m || now.getMonth() + 1;
+  const year = y >= 2000 && y <= 2100 ? y : now.getFullYear();
+  const month = m >= 1 && m <= 12 ? m : now.getMonth() + 1;
   const mesStr = `${year}-${String(month).padStart(2, "0")}`;
   const prev = new Date(year, month - 2, 1);
   const next = new Date(year, month, 1);
@@ -39,10 +43,13 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
   const toMes = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
   const filtro = searchParams.filtro; const cat = searchParams.cat; const q = searchParams.q?.trim();
-  const [f, agents, properties] = await Promise.all([
+  const [f, agents, properties, series] = await Promise.all([
     getFinance(ctx.org.id, year, month, { kpi: filtro, cat, q }),
     getAgents(ctx.org.id),
     getPanelProperties(ctx.org.id),
+    process.env.DATABASE_URL
+      ? getFinanceSeries(prisma, ctx.org.id, year, month).catch((e) => { console.error("financeiro série:", e); return null; })
+      : Promise.resolve([] as FinanceMonth[]),
   ]);
   // link que preserva o mês e alterna filtros (clicar de novo limpa)
   const href = (p: { filtro?: string; cat?: string }) => {
@@ -58,7 +65,16 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
     recebido: "recebidos no mês", pago: "pagos no mês", resultado: "movimentados no mês",
     a_receber: "a receber no mês", a_pagar: "a pagar no mês", vencidos: "vencidos em aberto",
   };
-  const maxFlow = Math.max(1, ...f.flow.map((x) => Math.max(x.inn, x.out)));
+  // gráfico de 12 meses (mesma base de caixa dos KPIs e da DRE)
+  const seriesOk = series ?? []; // null = a consulta falhou (aviso próprio); [] = sem dados
+  const scale = buildScale(seriesOk.flatMap((x) => [x.inn, x.out, x.saldo]));
+  const sgn = (v: number) => `${v < 0 ? "−" : ""}${brl(Math.abs(v))}`;
+  const chartMonths = seriesOk.map((x) => ({ ...x, href: `/painel/financeiro?mes=${x.key}`, innText: brl(x.inn), outText: brl(x.out), saldoText: sgn(x.saldo) }));
+  const chartTicks = scale.ticks.map((v) => ({ value: v, text: v === 0 ? "0" : `${v < 0 ? "−" : ""}${brlCompact(Math.abs(v))}` }));
+  const donutItems = (rows: typeof f.dre) => rows.map((r) => ({
+    label: FIN_CATEGORY[r.category] ?? r.category, value: r.total, display: brlCompact(r.total),
+    aria: `${FIN_CATEGORY[r.category] ?? r.category}: ${brl(r.total)}`,
+  }));
   const pendingCms = f.commissions.filter((c: any) => c.status === "PENDING");
   const paidCms = f.commissions.filter((c: any) => c.status === "PAID");
   const dreIn = f.dre.filter((r) => r.direction === "IN");
@@ -104,22 +120,23 @@ export default async function Financeiro({ searchParams }: { searchParams: { mes
         ))}
       </div>
 
+      <div style={{ marginBottom: "1.2rem" }}>
+        {series ? (
+          <CashFlowChart months={chartMonths} ticks={chartTicks} lo={scale.lo} hi={scale.hi} />
+        ) : (
+          <section className="ficha-box">
+            <h2>Fluxo de caixa · 12 meses</h2>
+            <p style={{ color: "var(--stone)" }}>Não foi possível carregar o gráfico agora. Os KPIs, a DRE e o extrato abaixo continuam valendo.</p>
+          </section>
+        )}
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.2rem", marginBottom: "1.4rem" }}>
-        {/* ---- Fluxo de caixa 6 meses ---- */}
-        <section className="ficha-box">
-          <h2>Fluxo de caixa · 6 meses</h2>
-          {f.flow.map((x) => (
-            <div key={x.label} style={{ marginBottom: ".6rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".82rem", marginBottom: ".2rem" }}>
-                <span style={{ textTransform: "capitalize" }}>{x.label}</span>
-                <span style={{ color: "var(--stone)" }}>+{brlCompact(x.inn)} · −{brlCompact(x.out)}</span>
-              </div>
-              <div className="meta-bar" style={{ marginBottom: ".2rem" }}><i style={{ width: `${Math.round((100 * x.inn) / maxFlow)}%` }} /></div>
-              <div className="meta-bar"><i style={{ width: `${Math.round((100 * x.out) / maxFlow)}%`, background: "#7a5548" }} /></div>
-            </div>
-          ))}
-          <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".5rem" }}>Dourado = entradas · terracota = saídas (pelo que foi efetivamente pago).</p>
-        </section>
+        {/* ---- Receitas e despesas do mês por categoria (mesma base da DRE) ---- */}
+        <DonutCard title="Receitas por tipo" items={donutItems(dreIn)} totalDisplay={brlCompact(f.kpis.inPaid)} caption="recebido no mês"
+          emptyText="Sem entradas recebidas neste mês." hint={`Recebido em ${mesLabel}, por categoria — a mesma base da DRE.`} />
+        <DonutCard title="Despesas por tipo" items={donutItems(dreOut)} totalDisplay={brlCompact(f.kpis.outPaid)} caption="pago no mês"
+          emptyText="Sem saídas pagas neste mês." hint={`Pago em ${mesLabel}, por categoria — a mesma base da DRE.`} />
 
         {/* ---- Previsão de caixa ---- */}
         <section className="ficha-box">

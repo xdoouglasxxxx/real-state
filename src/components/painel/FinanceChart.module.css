@@ -1,0 +1,46 @@
+/* Gráfico "Fluxo de caixa · 12 meses". Cores só por tokens do painel (+ cinza-azulado fixo p/ saídas). */
+.head { display: flex; align-items: center; justify-content: space-between; gap: .6rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.head h2 { margin: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font-size: .8rem; color: var(--stone); }
+.legend span { display: inline-flex; align-items: center; gap: .4rem; }
+.swIn, .swOut { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.swIn { background: var(--brass); }
+.swOut { background: #5b6577; }
+.swLine { width: 16px; height: 2px; background: var(--cream); display: inline-block; }
+
+.chart { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: .6rem; }
+.axis { position: relative; height: 260px; }
+.axis span { position: absolute; right: 0; transform: translateY(50%); font-size: .72rem; color: var(--stone); white-space: nowrap; }
+.plot { position: relative; height: 260px; }
+.grid, .gridZero { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line); pointer-events: none; }
+.gridZero { border-top-color: var(--stone); opacity: .6; }
+
+.cols { position: absolute; inset: 0; display: flex; }
+.col { position: relative; flex: 1; height: 100%; display: block; border-radius: 6px; color: inherit; text-decoration: none; }
+.col:hover, .col:focus-visible { background: rgba(255, 255, 255, .05); }
+.colOn { position: relative; flex: 1; height: 100%; display: block; border-radius: 6px; background: var(--panel-hi); }
+.barIn, .barOut { position: absolute; width: min(32%, 16px); border-radius: 4px 4px 0 0; }
+.barIn { right: 50%; margin-right: 1px; background: var(--brass); opacity: .8; }
+.barOut { left: 50%; margin-left: 1px; background: #5b6577; }
+.col:hover .barIn, .colOn .barIn, .col:focus-visible .barIn { opacity: 1; }
+.col:hover .barOut, .colOn .barOut, .col:focus-visible .barOut { background: #7a8498; }
+
+.line { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.dot { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: var(--ink); border: 2px solid var(--cream); box-sizing: border-box; transform: translate(-50%, 50%); pointer-events: none; }
+
+.tip { position: absolute; top: 6px; transform: translateX(-50%); z-index: 6; pointer-events: none; white-space: nowrap; background: var(--ink); border: 1px solid #3a4150; border-radius: 10px; padding: .6rem .8rem; font-size: .8rem; box-shadow: 0 8px 24px rgba(0, 0, 0, .4); }
+.tip strong { display: block; margin-bottom: .25rem; }
+.tip div { display: flex; justify-content: space-between; gap: 1rem; color: var(--stone); }
+.tip b { color: var(--cream); font-weight: 600; }
+
+.labels { display: flex; margin-top: .5rem; }
+.lbl, .lblOn { flex: 1; text-align: center; font-size: .75rem; color: var(--stone); white-space: nowrap; }
+.lblOn { color: var(--panel-strong); font-weight: 600; }
+.hint { color: var(--stone); font-size: .8rem; margin-top: .8rem; }
+
+@media (max-width: 640px) {
+  .chart { grid-template-columns: 50px minmax(0, 1fr); gap: .3rem; }
+  .axis span { font-size: .66rem; }
+  .lbl, .lblOn { font-size: .66rem; }
+  .yr { display: none; }
+}
