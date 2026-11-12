@@ -44,6 +44,11 @@ Dono: Douglas (Windows + PowerShell).
    - `.panel-link` também é usado como "botão discreto" (☐ de tarefas, salas da vistoria); o estilo
      de MENU vive em `.panel .panel-side .panel-link` — não o amplie para fora do `.panel-side`.
    - Sem emoji colorido como ícone em tela nova: use SVG (`AlertIcon` é o modelo).
+   - **Dashboard do gestor** (`src/lib/dashboard.ts` + `periods.ts`/`funnel.ts`/`dash-calc.ts`):
+     período e corretor vêm da URL e são **validados** (período inválido → mês; corretor tem que ser da
+     imobiliária). Limites de período em horário de Brasília (`periodRange`), nunca `new Date()` cru.
+     Consulta nova do dashboard entra em `dashboard.ts` com o `db` recebido por parâmetro e ganha caso em
+     `tests/unit/dashboard.test.ts` (banco de mentira em `tests/unit/helpers/`). Detalhes: `DASHBOARD.md`.
 4. **Push é manual por padrão** — pare após commitar; só dê push com ordem
    explícita do Douglas na conversa (aí pode sincronizar `main` e
    `staging-maison`, local e origin, por fast-forward). Commits temáticos,

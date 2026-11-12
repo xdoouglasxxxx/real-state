@@ -1,9 +1,17 @@
 import { requirePanel } from "@/lib/perm";
-import { getDashboard, getAgentDashboard, getDashboardIntel, getAgentCopilot, getTasksDue, leadTemp } from "@/lib/data";
+import { getAgentDashboard, getDashboardIntel, getAgentCopilot, getTasksDue, leadTemp } from "@/lib/data";
 import Link from "next/link";
-import { brl, brlCompact } from "@/lib/format";
+import { brl, brlCompact, SOURCE_LABEL } from "@/lib/format";
 import { toggleTask } from "./leads/actions";
 import AlertIcon from "@/components/painel/AlertIcon";
+import DashFilters from "@/components/painel/DashFilters";
+import FunnelCard from "@/components/painel/FunnelCard";
+import SourceDonut from "@/components/painel/SourceDonut";
+import styles from "@/components/painel/DashParts.module.css";
+import { prisma } from "@/lib/prisma";
+import { getAgentOptions, getDashboardPeriod } from "@/lib/dashboard";
+import { dashHref, parsePeriod } from "@/lib/periods";
+import { paceProjection, pctChange } from "@/lib/dash-calc";
 
 /** Lista de tarefas do dia/atrasadas — usada no painel do gestor e do corretor. */
 function TasksBox({ tasks }: { tasks: any[] }) {
@@ -41,13 +49,13 @@ function TasksBox({ tasks }: { tasks: any[] }) {
 
 export const dynamic = "force-dynamic";
 
-/** Variação vs. mesmo período do mês passado (▲ bom, ▼ atenção) */
-function Delta({ v }: { v: number }) {
-  if (v === 0) return <small className="delta" style={{ color: "var(--stone)" }}>— estável vs mês passado</small>;
+/** Variação vs. o mesmo tempo decorrido do período anterior (▲ bom, ▼ atenção) */
+function Delta({ v, cmp = "vs mês anterior" }: { v: number; cmp?: string }) {
+  if (v === 0) return <small className="delta" style={{ color: "var(--stone)" }}>— estável {cmp}</small>;
   const up = v > 0;
   return (
     <small className="delta" style={{ color: up ? "#8fbb7d" : "#c67a6b" }}>
-      {up ? "▲" : "▼"} {Math.abs(v) > 400 ? ">400" : Math.abs(v)}% vs mês passado
+      {up ? "▲" : "▼"} {Math.abs(v) > 400 ? ">400" : Math.abs(v)}% {cmp}
     </small>
   );
 }
@@ -58,7 +66,7 @@ const NEGADO_MSG: Record<string, string> = {
   admin: "Aquela área é exclusiva do administrador (assinatura, configurações e usuários). Se precisar de algo lá, fale com quem administra a conta.",
 };
 
-export default async function Dashboard({ searchParams }: { searchParams: { negado?: string; bemvindo?: string } }) {
+export default async function Dashboard({ searchParams }: { searchParams: { negado?: string; bemvindo?: string; periodo?: string; corretor?: string } }) {
   const ctx = await requirePanel();
 
   // -------- Portal do Corretor: números só DELE (sem vínculo = zeros, nunca os da imobiliária) --------
@@ -152,28 +160,42 @@ export default async function Dashboard({ searchParams }: { searchParams: { nega
     );
   }
 
-  // -------- Dashboard 2.0 da imobiliária (admin/gerente) --------
-  const [d, intel, tasksDue] = await Promise.all([
-    getDashboard(ctx.org.id),
+  // -------- Dashboard 2.0 da imobiliária (admin/gerente): período e corretor na URL --------
+  const periodo = parsePeriod(searchParams.periodo);
+  const agents = process.env.DATABASE_URL
+    ? await getAgentOptions(prisma, ctx.org.id).catch((e) => { console.error("dashboard agentes:", e); return [] as { id: string; name: string }[]; })
+    : [];
+  const corretor = agents.some((a) => a.id === searchParams.corretor) ? (searchParams.corretor as string) : null;
+  const corretorNome = agents.find((a) => a.id === corretor)?.name ?? null;
+
+  const [dash, intel, tasksDue] = await Promise.all([
+    process.env.DATABASE_URL
+      ? getDashboardPeriod(prisma, ctx.org.id, { period: periodo, agentId: corretor }).catch((e) => { console.error("dashboard:", e); return null; })
+      : Promise.resolve(null),
     getDashboardIntel(ctx.org.id, { finance: ctx.isAdmin }),
     getTasksDue(ctx.org.id),
   ]);
 
-  // Projeção da meta pelo ritmo do mês + pipeline ponderado
-  const now = new Date();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const paceProjection = d.realizado > 0 ? Math.round((d.realizado / now.getDate()) * daysInMonth) : 0;
-  const pacePct = d.meta > 0 ? Math.round((100 * paceProjection) / d.meta) : 0;
+  // Projeção da meta pelo ritmo do período + (só sem filtro de corretor) pipeline ponderado da imobiliária
+  const periodoNome = { mes: "mês", tri: "trimestre", ano: "ano" }[periodo];
+  const projected = dash ? paceProjection(dash.realizado, dash.elapsedFraction) : 0;
+  const pacePct = dash && dash.meta > 0 ? Math.round((100 * projected) / dash.meta) : 0;
   const paceLabel = pacePct > 200 ? "bem acima de 100%" : `~${pacePct}%`;
-  const earlyMonth = now.getDate() < 8; // poucos dias fechados distorcem a projeção linear
-  const gap = Math.max(0, d.meta - d.realizado);
-
-  const maxFunnel = Math.max(1, ...intel.funnel.map((f: any) => f.count));
-  const maxSource = Math.max(1, ...intel.sources.map((s: any) => s.count));
+  const earlyPeriod = !!dash && dash.elapsedFraction < 0.25; // pouco tempo decorrido distorce a projeção linear
+  const gap = dash ? Math.max(0, dash.meta - dash.realizado) : 0;
 
   return (
     <>
-      <h1>Hoje</h1>
+      <div className="phead">
+        <h1>Hoje</h1>
+        <DashFilters period={periodo} agent={corretor} agents={agents} />
+      </div>
+      {corretorNome && (
+        <p className={styles.filterNote}>
+          Mostrando só os números de <strong>{corretorNome}</strong> · <Link href={dashHref(periodo, null)}>ver todos</Link>.
+          Tarefas e alertas continuam sendo da imobiliária toda.
+        </p>
+      )}
       {searchParams.negado && <p className="pform-error">{NEGADO_MSG[searchParams.negado] ?? NEGADO_MSG["1"]}</p>}
 
       <TasksBox tasks={tasksDue} />
@@ -192,108 +214,120 @@ export default async function Dashboard({ searchParams }: { searchParams: { nega
               </Link>
             </li>
           ))}
-          {gap > 0 && d.meta > 0 && (
+          {dash && gap > 0 && dash.meta > 0 && (
             <li className="alert-li" style={{ color: "var(--stone)" }}>
               <span className="alert-ic"><AlertIcon emoji="🎯" /></span>
               <span>
-                Faltam {brl(gap)} para a meta. No ritmo atual o mês fecha em {paceLabel}{earlyMonth ? " (início de mês — projeção ainda instável)" : ` (${brl(paceProjection)})`};
-                pipeline ponderado cobre {brl(intel.pipeline)}{intel.pipeline < gap ? " — abaixo do necessário: priorize propostas e assinaturas" : " — dá para bater, é fechar o que está na mesa"}.
+                Faltam {brl(gap)} para a meta {corretorNome ? `de ${corretorNome} ` : ""}do {periodoNome}. No ritmo atual o {periodoNome} fecha em {paceLabel}{earlyPeriod ? ` (início de ${periodoNome} — projeção ainda instável)` : ` (${brl(projected)})`}
+                {corretor ? "." : <>; pipeline ponderado cobre {brl(intel.pipeline)}{intel.pipeline < gap ? " — abaixo do necessário: priorize propostas e assinaturas" : " — dá para bater, é fechar o que está na mesa"}.</>}
               </span>
             </li>
           )}
         </ul>
       </section>
 
-      {/* ---- KPIs com variação ---- */}
-      <div className="kpis">
-        <div className="kpi">
-          <strong>{brlCompact(d.availableValue)}</strong>
-          <span>em imóveis disponíveis ({d.availableCount})</span>
-        </div>
-        <div className="kpi">
-          <strong>{d.newLeads}</strong>
-          <span>novos leads no mês{intel.deltas && <Delta v={intel.deltas.newLeads} />}</span>
-        </div>
-        <div className="kpi">
-          <strong>{d.visits}</strong>
-          <span>visitas marcadas · {intel.visitsDoneMonth} realizadas no mês{intel.deltas && <Delta v={intel.deltas.visitsDone} />}</span>
-        </div>
-        <div className="kpi">
-          <strong>{d.awaitingContracts}</strong>
-          <span>contratos aguardando assinatura</span>
-        </div>
-        <div className="kpi">
-          <strong>{d.proposals}</strong>
-          <span>propostas em aberto</span>
-        </div>
-        <div className="kpi">
-          <strong>{d.soldMonth}</strong>
-          <span>vendidos este mês{intel.deltas && <Delta v={intel.deltas.sold} />}</span>
-        </div>
-        <div className="kpi">
-          <strong>{d.conversion}%</strong>
-          <span>conversão (leads → ganho)</span>
-        </div>
-        <div className="kpi">
-          <strong>{d.goalPct}%</strong>
-          <span>meta do mês · {brlCompact(d.realizado)} de {brlCompact(d.meta)}</span>
-          <div className="meta-bar"><i style={{ width: `${d.goalPct}%` }} /></div>
-        </div>
-      </div>
+      {!dash && (
+        <p className="pform-error">
+          {process.env.DATABASE_URL ? "Não foi possível carregar os números agora. Tente de novo em instantes." : "Modo demonstração: conecte o banco para ver os números do período."}
+        </p>
+      )}
 
-      {/* ---- Funil + Origem + Ranking ---- */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.2rem", marginTop: "1.4rem" }}>
-        <section className="ficha-box">
-          <h2>Funil ativo</h2>
-          {intel.funnel.map((f: any) => (
-            <div key={f.stage} style={{ marginBottom: ".55rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".82rem", marginBottom: ".2rem" }}>
-                <span>{f.label}</span><span style={{ color: "var(--stone)" }}>{f.count}</span>
-              </div>
-              <div className="meta-bar"><i style={{ width: `${Math.round((100 * f.count) / maxFunnel)}%` }} /></div>
+      {dash && (
+        <>
+          <p style={{ color: "var(--stone)", fontSize: ".85rem", margin: "-.4rem 0 1rem" }}>
+            {dash.label}, até agora · comparado {dash.cmp.replace(/^vs /, "com o ")}
+          </p>
+
+          {/* ---- KPIs com variação ---- */}
+          <div className="kpis">
+            <div className="kpi">
+              <strong>{brlCompact(dash.availableValue)}</strong>
+              <span>em imóveis disponíveis ({dash.availableCount})</span>
             </div>
-          ))}
-          <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".6rem" }}>Leads ativos por estágio (perdidos e ganhos fora).</p>
-        </section>
-
-        <section className="ficha-box">
-          <h2>Origem dos leads · 90 dias</h2>
-          {intel.sources.length === 0 && <p style={{ color: "var(--stone)" }}>Sem leads no período.</p>}
-          {intel.sources.map((s: any) => (
-            <div key={s.source} style={{ marginBottom: ".55rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".82rem", marginBottom: ".2rem" }}>
-                <span>{s.source}</span>
-                <span style={{ color: "var(--stone)" }}>{s.count} lead{s.count > 1 ? "s" : ""}{s.won > 0 ? ` · ${s.won} venda${s.won > 1 ? "s" : ""}` : ""}</span>
-              </div>
-              <div className="meta-bar"><i style={{ width: `${Math.round((100 * s.count) / maxSource)}%` }} /></div>
+            <div className="kpi">
+              <strong>{dash.newLeads}</strong>
+              <span>novos leads {dash.noun}<Delta v={pctChange(dash.newLeads, dash.newLeadsPrev)} cmp={dash.cmp} /></span>
             </div>
-          ))}
-          <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".6rem" }}>Onde investir: volume + vendas por canal.</p>
-        </section>
+            <div className="kpi">
+              <strong>{dash.scheduledVisits}</strong>
+              <span>visitas marcadas · {dash.visitsDone} realizadas {dash.noun}<Delta v={pctChange(dash.visitsDone, dash.visitsDonePrev)} cmp={dash.cmp} /></span>
+            </div>
+            <div className="kpi">
+              <strong>{dash.awaitingContracts}</strong>
+              <span>contratos aguardando assinatura</span>
+            </div>
+            <div className="kpi">
+              <strong>{dash.openProposals}</strong>
+              <span>propostas em aberto</span>
+            </div>
+            <div className="kpi">
+              <strong>{dash.sold}</strong>
+              <span>vendidos {dash.noun}<Delta v={pctChange(dash.sold, dash.soldPrev)} cmp={dash.cmp} /></span>
+            </div>
+            <div className="kpi">
+              <strong>{dash.conversion}%</strong>
+              <span>conversão (leads {dash.noun} → venda)</span>
+            </div>
+            <div className="kpi">
+              <strong>{dash.goalPct}%</strong>
+              <span>meta do {periodoNome} · {brlCompact(dash.realizado)} de {brlCompact(dash.meta)}</span>
+              <div className="meta-bar"><i style={{ width: `${dash.goalPct}%` }} /></div>
+              {dash.meta === 0 && <Link href="/painel/metas" style={{ color: "var(--brass)", fontSize: ".8rem" }}>Definir meta</Link>}
+            </div>
+          </div>
 
-        <section className="ficha-box">
-          <h2>Ranking do mês</h2>
-          {intel.ranking.length === 0 && <p style={{ color: "var(--stone)" }}>Sem visitas realizadas ou vendas registradas ainda neste mês.</p>}
-          {intel.ranking.length > 0 && (
-            <table className="table" style={{ fontSize: ".85rem" }}>
-              <thead><tr><th></th><th>Corretor</th><th>Visitas</th><th>Vendas</th></tr></thead>
-              <tbody>
-                {intel.ranking.map((r: any, i: number) => (
-                  <tr key={r.name}>
-                    <td>{`${i + 1}º`}</td>
-                    <td>{r.name}</td><td>{r.visits}</td><td>{r.won}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-          <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".6rem" }}>Visitas realizadas e negócios ganhos no mês.</p>
-        </section>
-      </div>
+          {/* ---- Funil + Origem + Por corretor ---- */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.2rem", marginTop: "1.4rem", alignItems: "start" }}>
+            <FunnelCard
+              steps={dash.funnel}
+              worstIndex={dash.worst ? dash.worst.toIndex : null}
+              worstText={dash.worst ? `Maior perda: ${dash.funnel[dash.worst.fromIndex].label} → ${dash.funnel[dash.worst.toIndex].label} (${dash.worst.pct}% avançam)` : null}
+            />
+            <SourceDonut
+              total={dash.newLeads}
+              items={dash.sources.map((x) => ({ label: SOURCE_LABEL[x.source] ?? x.source, count: x.count, won: x.won, share: x.share }))}
+            />
+
+            <section className="ficha-box">
+              <h2>Por corretor</h2>
+              {dash.ranking.length === 0 && <p style={{ color: "var(--stone)" }}>Sem leads, visitas ou vendas de corretores neste período.</p>}
+              {dash.ranking.length > 0 && (
+                <table className="table" style={{ fontSize: ".85rem" }}>
+                  <thead><tr><th></th><th>Corretor</th><th>Leads</th><th>Visitas</th><th>Vendas</th></tr></thead>
+                  <tbody>
+                    {dash.ranking.map((r, i) => (
+                      <tr key={r.id} className={r.id === corretor ? styles.rowOn : undefined}>
+                        <td>{`${i + 1}º`}</td>
+                        <td>
+                          <Link className={styles.rankLink} href={dashHref(periodo, r.id === corretor ? null : r.id)} aria-current={r.id === corretor ? "true" : undefined}>{r.name}</Link>
+                        </td>
+                        <td>{r.leads}</td><td>{r.visits}</td><td>{r.won}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              <p style={{ color: "var(--stone)", fontSize: ".78rem", marginTop: ".6rem" }}>
+                Leads criados, visitas realizadas e vendas {dash.noun}. Clique no nome para filtrar o painel.
+              </p>
+            </section>
+          </div>
+        </>
+      )}
 
       <p style={{ color: "var(--stone)", fontSize: ".85rem", marginTop: "1.2rem" }}>
-        Os números vêm direto do Supabase, em tempo real. Variações comparam com o mesmo período do mês anterior.
+        Os números vêm direto do banco, em tempo real. Variações comparam o mesmo tempo decorrido do período anterior.
+        Imóveis disponíveis, visitas marcadas, contratos aguardando e propostas em aberto são a situação de agora, não do período.
       </p>
+      {dash && (
+        <details style={{ color: "var(--stone)", fontSize: ".8rem", marginTop: ".6rem" }}>
+          <summary style={{ cursor: "pointer" }}>Conferir estes números no SQL</summary>
+          <p style={{ marginTop: ".4rem" }}>
+            Horários usados (UTC): período {dash.range.ini} → {dash.range.fim}; anterior {dash.range.pini} → {dash.range.pfim}.
+            As consultas prontas estão no DASHBOARD.md.
+          </p>
+        </details>
+      )}
     </>
   );
 }

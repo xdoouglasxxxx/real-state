@@ -14,7 +14,7 @@ depende de terceiros.
 | **0** | Fechar o lançamento (validar, limpar, publicar na `main`) | P | — | 🔶 em andamento |
 | **1** | Mapa dos imóveis | P | CP0 | 🔶 aplicado; falta validar |
 | **2** | Visual B (grafite) no painel | P–M | CP0 | 🔶 código pronto |
-| **3** | Dashboard interativo (período, corretor, funil, origem) | M | CP2 (recomendado) | ⬜ |
+| **3** | Dashboard interativo (período, corretor, funil, origem) | M | CP2 (recomendado) | 🔶 código pronto |
 | **4** | Financeiro com gráficos | M | CP3 (reaproveita os gráficos) | ⬜ |
 | **5** | Agente IA, fase 1: resumo do dia por regras (sem IA externa) | M | CP1 | ⬜ |
 | **6** | Agente IA, fase 2: chat com IA real | G | CP5 e T6 | ⬜ |
@@ -99,14 +99,16 @@ Pronto quando:
 - [ ] Testado com um tenant de cor de marca diferente do dourado.
 - [ ] Decisão registrada: tema claro (opção A do protótipo) fica para depois ou não.
 
-## CP3 — Dashboard interativo  ·  M  ·  ⬜
+## CP3 — Dashboard interativo  ·  M  ·  🔶
 
 Entrega: abas **Mês / Trimestre / Ano**, filtro por **corretor**, funil com conversão por etapa
 e destaque, rosca "De onde vêm", lista "Por corretor" clicável, variação contra o período
 anterior. Período e corretor ficam **na URL** (dá para compartilhar o link da visão).
 
-Mexe em: `getDashboard` (`src/lib/data.ts`) e `src/app/painel/page.tsx`. Gráficos próprios
-(CSS/SVG), sem biblioteca.
+Arquivos: `src/lib/dashboard.ts` (consultas), `periods.ts`, `funnel.ts`, `dash-calc.ts` (lógica
+pura), `DashFilters`/`FunnelCard`/`SourceDonut` (peças interativas), `page.tsx`. O `data.ts` não
+foi tocado. Gráficos próprios (CSS/SVG), sem biblioteca. Regras de cálculo e consultas de
+conferência: `DASHBOARD.md`.
 
 Pronto quando:
 - [ ] Os números de dois períodos batem com uma conferência por SQL.

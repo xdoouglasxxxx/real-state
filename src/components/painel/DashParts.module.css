@@ -1,0 +1,45 @@
+/* Peças interativas do dashboard (período, funil, origem, ranking). Cores só por tokens do painel. */
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.tabs { display: inline-flex; gap: 4px; padding: 4px; background: var(--umber); border: 1px solid var(--line); border-radius: 10px; }
+.tab, .tabOn {
+  border: 0; border-radius: 7px; padding: .45rem .95rem; font-size: .88rem; text-decoration: none;
+  color: var(--stone); min-height: 36px; display: inline-flex; align-items: center;
+}
+.tab:hover { color: var(--cream); }
+.tabOn { background: var(--panel-track); color: var(--panel-strong); font-weight: 600; }
+.agentSel { display: inline-flex; align-items: center; gap: .5rem; font-size: .85rem; color: var(--stone); }
+.agentSel select {
+  background: var(--umber); color: var(--cream); border: 1px solid var(--line); border-radius: 10px;
+  padding: .5rem .8rem; font: inherit; font-size: .88rem; min-height: 40px; max-width: 220px;
+}
+
+.cardHead { display: flex; align-items: center; justify-content: space-between; gap: .6rem; flex-wrap: wrap; margin-bottom: .6rem; }
+.cardHead h2 { margin: 0; }
+.worst { font-size: .78rem; color: var(--cream); background: rgba(229, 185, 78, .12); border: 1px solid rgba(229, 185, 78, .35); border-radius: 999px; padding: .2rem .65rem; }
+
+.frow, .frowOn { padding: .5rem .6rem; margin: 0 -.6rem; border-radius: 8px; outline-offset: -2px; }
+.frowOn { background: var(--panel-hi); }
+.frowTop { display: flex; justify-content: space-between; font-size: .88rem; margin-bottom: .3rem; }
+.track { height: 10px; border-radius: 999px; background: var(--panel-track); overflow: hidden; }
+.bar, .barOn { display: block; height: 100%; border-radius: 999px; background: var(--brass); opacity: .75; transition: width .25s; }
+.barOn { opacity: 1; }
+.hint { color: var(--stone); font-size: .8rem; margin-top: .7rem; min-height: 2.4em; }
+
+.donutWrap { display: flex; flex-wrap: wrap; align-items: center; gap: 1.2rem; }
+.donutBox { position: relative; width: 168px; height: 168px; flex: none; }
+.donutSvg { width: 100%; height: 100%; display: block; }
+.donutCenter { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 30px; pointer-events: none; }
+.donutCenter strong { font-size: 1.6rem; font-weight: 600; color: var(--panel-strong); line-height: 1.1; }
+.donutCenter span { font-size: .75rem; color: var(--stone); line-height: 1.25; }
+.legend { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.legRow, .legRowOn { display: flex; align-items: center; gap: .6rem; padding: .45rem .6rem; margin: 0 -.6rem; border-radius: 8px; font-size: .88rem; outline-offset: -2px; }
+.legRowOn { background: var(--panel-hi); }
+.legName { flex: 1; min-width: 0; }
+.legPct { color: var(--stone); min-width: 2.6em; text-align: right; }
+.dot { width: 10px; height: 10px; border-radius: 3px; flex: none; display: inline-block; }
+
+.rankLink { color: var(--cream); text-decoration: none; border-bottom: 1px dotted var(--stone); }
+.rankLink:hover { color: var(--panel-strong); }
+.rowOn td { background: var(--panel-hi); }
+.filterNote { color: var(--stone); font-size: .85rem; margin: -.6rem 0 1.2rem; }
+.filterNote a { color: var(--brass); }
