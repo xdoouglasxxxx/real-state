@@ -1,0 +1,97 @@
+/* Mapa dos imóveis. Cores de TEMA vêm das variáveis do tenant (--brass, --ink,
+   --cream, --stone, --line, --umber); as de STATUS são semânticas e fixas. */
+.wrap {
+  --pin-disp: var(--brass);
+  --pin-res: #6fb1a5;
+  --pin-vend: #8a93a6;
+  --pin-ring: #f08a80;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip, .chipOn {
+  border: 1px solid var(--line); background: transparent; color: var(--stone);
+  border-radius: 999px; padding: 7px 14px; font: inherit; font-size: .85rem; cursor: pointer; min-height: 36px;
+}
+.chip:hover { color: var(--cream); }
+.chipOn { border-color: var(--brass); color: var(--cream); background: rgba(255, 255, 255, .06); }
+
+.body { display: flex; flex-wrap: wrap; gap: 16px; align-items: stretch; }
+.mapCol { flex: 2 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.stage {
+  position: relative; height: 440px; overflow: hidden; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--ink);
+}
+.tiles, .tilesDark { position: absolute; inset: 0; }
+.tilesDark { filter: invert(1) hue-rotate(180deg) brightness(.88) contrast(.92) saturate(.7); }
+.tile { position: absolute; width: 256px; height: 256px; max-width: none; user-select: none; pointer-events: none; }
+
+.pin, .cluster {
+  position: absolute; transform: translate(-50%, -50%); border-radius: 50%; padding: 0; cursor: pointer;
+  border: 3px solid var(--ink); display: flex; align-items: center; justify-content: center;
+  font: inherit; font-weight: 600; font-size: .8rem; color: #111; box-sizing: border-box;
+}
+.pin::after, .cluster::after { content: ""; position: absolute; inset: -12px; } /* alvo de toque ≥ 44px */
+.pin { width: 20px; height: 20px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .3); z-index: 2; }
+.pin:hover, .pin:focus-visible { width: 24px; height: 24px; z-index: 6; }
+.pinSel { width: 26px; height: 26px; border-color: #fff; z-index: 7; }
+.pin_disp { background: var(--pin-disp); }
+.pin_res { background: var(--pin-res); }
+.pin_vend { background: var(--pin-vend); }
+.ring { box-shadow: 0 0 0 3px var(--pin-ring); }
+.cluster { width: 34px; height: 34px; background: #e9ecf1; box-shadow: 0 0 0 1px rgba(255, 255, 255, .3); z-index: 3; }
+.label {
+  position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); white-space: nowrap;
+  background: var(--ink); color: var(--cream); border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 10px; font-size: .8rem; font-weight: 500; pointer-events: none; z-index: 9;
+}
+/* rótulo encostado na borda do mapa não pode ser cortado */
+.labelL { left: 0; transform: none; }
+.labelR { left: auto; right: 0; transform: none; }
+.labelB { bottom: auto; top: calc(100% + 8px); }
+.controls { position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 6px; z-index: 10; }
+.ctl {
+  width: 40px; height: 40px; border-radius: 8px; border: 1px solid var(--line); background: var(--umber);
+  color: var(--cream); font: inherit; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.ctl:disabled { opacity: .4; cursor: default; }
+.attrib {
+  position: absolute; left: 8px; bottom: 6px; font-size: .7rem; background: rgba(0, 0, 0, .6);
+  color: #ddd; padding: 2px 6px; border-radius: 4px; z-index: 10;
+}
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .8rem; color: var(--stone); align-items: center; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+
+.side { flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.detail {
+  background: var(--umber); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.detailTop { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.price { font-size: 1.15rem; font-weight: 600; color: var(--cream); }
+.muted { font-size: .85rem; color: var(--stone); }
+.warn {
+  font-size: .85rem; color: var(--cream); background: rgba(229, 185, 78, .12);
+  border: 1px solid rgba(229, 185, 78, .35); border-radius: 8px; padding: 8px 10px;
+}
+.open {
+  align-self: flex-start; margin-top: 4px; border: 1px solid var(--brass); color: var(--cream);
+  border-radius: 999px; padding: 8px 16px; font-size: .85rem; text-decoration: none; min-height: 36px;
+  display: inline-flex; align-items: center;
+}
+.hint, .empty { border: 1px dashed var(--line); border-radius: 10px; padding: 14px 16px; color: var(--stone); font-size: .9rem; }
+.list { display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow-y: auto; }
+.row, .rowOn {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%;
+  box-sizing: border-box; text-align: left; border: 0; border-radius: 8px; padding: 9px 10px;
+  cursor: pointer; color: var(--cream); background: transparent; font: inherit; min-height: 44px;
+}
+.row:hover, .rowOn { background: rgba(255, 255, 255, .07); }
+.rowText { display: flex; flex-direction: column; min-width: 0; }
+.rowTitle { font-size: .95rem; font-weight: 600; }
+.st { font-size: .75rem; border: 1px solid currentColor; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.st_disp { color: var(--pin-disp); }
+.st_res { color: var(--pin-res); }
+.st_vend { color: #aab2c2; }
+
+@media (max-width: 640px) { .stage { height: 360px; } }
