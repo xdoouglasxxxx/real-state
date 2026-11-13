@@ -1,35 +1,34 @@
 import Link from "next/link";
 import MobileNav from "./MobileNav";
+import SiteLogo from "./SiteLogo";
+import { whatsappHref } from "@/lib/site";
 
-function LogoMark() {
-  return (
-    <svg className="logo-mark" viewBox="0 0 64 64" aria-hidden="true">
-      <rect width="64" height="64" rx="14" fill="none" stroke="currentColor" strokeOpacity=".4" strokeWidth="2.5" />
-      <path d="M17 45 V20 L32 37 L47 20 V45" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="32" cy="50" r="2.6" fill="currentColor" />
-    </svg>
-  );
-}
+const WA_ICON = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-6.2A8 8 0 1 1 21 12z" /></svg>;
 
-export default function Header({ orgName }: { orgName: string }) {
-  const [first, ...rest] = orgName.toUpperCase().split(" ");
+export default function Header({ orgName, logoUrl, phone }: { orgName: string; logoUrl?: string | null; phone?: string | null }) {
+  const wa = whatsappHref(phone, `Olá! Vim pelo site da ${orgName}.`);
   return (
-    <nav className="nav">
-      <div className="nav-inner">
-        <Link className="logo" href="/">
-          <LogoMark />
-          <span>{first} <em>{rest.join(" ") || "ESTATE"}</em></span>
+    <header className="s-head">
+      <div className="wrap s-head-in">
+        <Link className="s-logo" href="/" aria-label={`${orgName}: página inicial`}>
+          <SiteLogo orgName={orgName} logoUrl={logoUrl} />
         </Link>
-        <div className="nav-links">
-          <Link className="nav-link" href="/imoveis">Imóveis</Link>
-          <Link className="nav-link" href="/vender">Vender</Link>
-          <Link className="nav-link" href="/sobre">Sobre</Link>
-          <Link className="nav-link" href="/blog">Blog</Link>
-          <Link className="nav-link nav-entrar" href="/login">Entrar</Link>
-          <Link className="btn-outline" href="/imoveis">Ver imóveis</Link>
-        </div>
-        <MobileNav />
+        <form className="s-hsearch" action="/imoveis" method="GET" role="search">
+          <label className="sr-only" htmlFor="s-hq">Buscar imóveis</label>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
+          <input id="s-hq" name="q" maxLength={60} placeholder="Buscar por bairro ou nome do imóvel" autoComplete="off" />
+        </form>
+        <nav className="s-nav" aria-label="Principal">
+          <Link href="/imoveis">Imóveis</Link>
+          <Link href="/vender">Vender</Link>
+          <Link href="/sobre">Sobre</Link>
+          <Link href="/blog">Blog</Link>
+        </nav>
+        {wa
+          ? <a className="s-wa" href={wa} target="_blank" rel="noopener noreferrer">{WA_ICON}Falar no WhatsApp</a>
+          : <Link className="s-cta" href="/imoveis">Ver imóveis</Link>}
+        <MobileNav waHref={wa} />
       </div>
-    </nav>
+    </header>
   );
 }

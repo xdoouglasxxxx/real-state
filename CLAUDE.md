@@ -122,6 +122,17 @@ Dono: Douglas (Windows + PowerShell).
 - **Domínio por tenant:** só via `src/lib/vercel-domains.ts` (nunca chame a API da Vercel de fora dele);
   host sempre passa por `normalizeHost` + `isReservedHost`. URL pública do tenant: `tenantBaseUrl()`
   (`src/lib/public-url.ts`) — nunca monte `slug.ROOT` na mão (em *.vercel.app o subdomínio não existe).
+- **Site público:** o CSS novo vive em `src/app/(site)/site-theme.css` e **toda regra começa com `.site`**
+  (`tests/unit/css-scope.test.ts` falha se vazar para painel, portal ou login; vale também para o do painel).
+  A cor da marca entra só como `--brass`, passando por `readableAccent`. Fundo/texto são grafite fixo.
+- **Dados do site nunca viram demonstração quando há banco:** em `src/lib/data.ts`, `DATABASE_URL` definida +
+  erro de consulta = lista **vazia** (nunca `DEMO_*`). Parâmetros de busca só entram por `parseSearchParams`
+  (`src/lib/search.ts`), que descarta valor inválido antes de chegar ao Prisma.
+- **Coordenada exata nunca sai do servidor no site:** use `publicLatLng` (arredonda a ~110 m) e `publicPins`
+  (lista branca de 6 campos). Vale para mapa, JSON-LD e qualquer HTML público. Dado de componente de cliente
+  vai no payload da página: nunca passe o objeto inteiro do imóvel, só os campos saneados.
+- **JSON-LD sempre por `safeJsonLd`** (escapa `<`, `>`, `&`): `JSON.stringify` cru deixa `</script>` fechar a tag.
+- **Logo do tenant só por `safeLogoUrl`** (https, sem credenciais). Link do WhatsApp só por `whatsappHref`.
 - Gap conhecido (backlog C1 do ROADMAP): exportação/exclusão de dados pessoais (LGPD) sob solicitação.
 
 ## Regras de negócio vigentes

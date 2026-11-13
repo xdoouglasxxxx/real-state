@@ -4,6 +4,10 @@
  */
 import { prisma } from "./prisma";
 import { DEMO_PROPERTIES } from "./demo-data";
+import { buildSearchWhere, demoMatches, type SearchFilters } from "./search";
+import { publicPins, type PublicPin } from "./site";
+
+export type { SearchFilters };
 
 const hasDb = () => Boolean(process.env.DATABASE_URL);
 
@@ -14,42 +18,48 @@ const mapProperty = (p: any) => ({
   tourUrl: p.media?.find((m: any) => m.kind === "VIRTUAL_TOUR")?.url ?? null,
 });
 
-export async function getFeaturedProperties(orgId: string) {
+export async function getFeaturedProperties(orgId: string, take = 3) {
   if (hasDb()) {
     try {
       const rows = await prisma.property.findMany({
         where: { organizationId: orgId, isFeatured: true, status: { in: ["FOR_SALE", "EXCLUSIVE"] } },
-        orderBy: { createdAt: "desc" }, take: 3,
+        orderBy: { createdAt: "desc" }, take,
         include: { media: { orderBy: { sortOrder: "asc" } } },
       });
       return rows.map(mapProperty); // vazio É a resposta certa p/ tenant novo
-    } catch {}
+    } catch (e) { console.error("getFeaturedProperties:", e); return []; } // com banco, falha NUNCA vira imóvel de demonstração
   }
-  return DEMO_PROPERTIES.filter((p) => p.isFeatured).slice(0, 3);
+  return DEMO_PROPERTIES.filter((p) => p.isFeatured).slice(0, take);
 }
-
-export type SearchFilters = { type?: string; location?: string; min?: number; max?: number };
 
 export async function searchProperties(orgId: string, f: SearchFilters) {
   if (hasDb()) try {
     const rows = await prisma.property.findMany({
-      where: {
-        organizationId: orgId,
-        status: { in: ["FOR_SALE", "EXCLUSIVE"] },
-        ...(f.type ? { type: f.type as any } : {}),
-        ...(f.location ? { neighborhood: f.location } : {}),
-        price: { gte: f.min ?? 0, ...(f.max ? { lte: f.max } : {}) },
-      },
+      where: buildSearchWhere(orgId, f),
       orderBy: { createdAt: "desc" },
       include: { media: { orderBy: { sortOrder: "asc" } } },
     });
     return rows.map(mapProperty);
-  } catch {}
-  return DEMO_PROPERTIES.filter((p) =>
-    (!f.type || p.type === f.type) &&
-    (!f.location || p.neighborhood === f.location) &&
-    p.price >= (f.min ?? 0) && (!f.max || p.price <= f.max)
-  );
+  } catch (e) { console.error("searchProperties:", e); return []; } // com banco, falha NUNCA vira imóvel de demonstração
+  return DEMO_PROPERTIES.filter((p) => demoMatches(p, f));
+}
+
+/**
+ * Pins do mapa público (mesmos filtros da listagem). O `select` pede SÓ o necessário e `publicPins` ainda
+ * filtra campos e arredonda a coordenada: dado interno do imóvel nunca chega ao navegador.
+ */
+export async function getMapPins(orgId: string, f: SearchFilters = {}): Promise<PublicPin[]> {
+  if (hasDb()) {
+    try {
+      const rows = await prisma.property.findMany({
+        where: buildSearchWhere(orgId, f),
+        select: { slug: true, title: true, price: true, status: true, latitude: true, longitude: true },
+        orderBy: { createdAt: "desc" }, take: 300,
+      });
+      return publicPins(rows);
+    } catch (e) { console.error("getMapPins:", e); return []; }
+  }
+  return publicPins(DEMO_PROPERTIES.filter((p) => demoMatches(p, f)));
 }
 
 export async function getNeighborhoods(orgId: string) {
@@ -59,7 +69,7 @@ export async function getNeighborhoods(orgId: string) {
       select: { neighborhood: true }, distinct: ["neighborhood"],
     });
     return rows.map((r) => r.neighborhood).filter(Boolean) as string[];
-  } catch {}
+  } catch (e) { console.error("getNeighborhoods:", e); return [] as string[]; }
   return [...new Set(DEMO_PROPERTIES.map((p) => p.neighborhood))];
 }
 
@@ -103,7 +113,7 @@ export async function getAgents(orgId: string) {
         where: { organizationId: orgId, isActive: true },
         orderBy: { createdAt: "asc" },
       });
-    } catch {}
+    } catch (e) { console.error("getAgents:", e); return []; }
   }
   return [
     { id: "a1", name: "Helena Duarte", creci: "CRECI 98.541", phone: "(11) 99812-4455", photoUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&q=80", bio: "Fundadora. 14 anos no alto padrão." },
@@ -116,7 +126,7 @@ export async function getTestimonials(orgId: string) {
   if (hasDb()) {
     try {
       return await prisma.testimonial.findMany({ where: { organizationId: orgId }, orderBy: { createdAt: "desc" }, take: 3 });
-    } catch {}
+    } catch (e) { console.error("getTestimonials:", e); return []; }
   }
   return [
     { id: "t1", text: "Vendemos nossa casa em 28 dias, acima do valor que esperávamos.", author: "Família Sampaio", context: "Venderam em Alphaville" },

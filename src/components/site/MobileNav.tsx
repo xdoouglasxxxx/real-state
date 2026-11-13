@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 const LINKS = [
-  { href: "/", label: "Home" },
+  { href: "/", label: "Início" },
   { href: "/imoveis", label: "Imóveis" },
   { href: "/vender", label: "Vender" },
   { href: "/sobre", label: "Sobre" },
@@ -11,37 +11,27 @@ const LINKS = [
   { href: "/login", label: "Entrar" },
 ];
 
-export default function MobileNav() {
+/** Menu do celular: botão + tela cheia. Fechado, os links saem da ordem do Tab (visibility); Esc fecha. */
+export default function MobileNav({ waHref }: { waHref?: string | null }) {
   const [open, setOpen] = useState(false);
 
-  // trava o scroll do body com o menu aberto
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    if (open) window.addEventListener("keydown", onKey);
+    return () => { document.body.style.overflow = ""; window.removeEventListener("keydown", onKey); };
   }, [open]);
 
   return (
     <>
-      <button
-        className="burger"
-        aria-label={open ? "Fechar menu" : "Abrir menu"}
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-      >
+      <button className="s-burger" type="button" aria-label={open ? "Fechar menu" : "Abrir menu"} aria-expanded={open} aria-controls="s-mnav" onClick={() => setOpen(!open)}>
         <span /><span /><span />
       </button>
-
-      <div className={"mnav" + (open ? " open" : "")} aria-hidden={!open}>
-        {LINKS.map((l, i) => (
-          <Link key={l.href} href={l.href} style={{ transitionDelay: open ? `${80 + i * 50}ms` : "0ms" }}
-            onClick={() => setOpen(false)}>
-            {l.label}
-          </Link>
-        ))}
-        <Link className="btn-solid mnav-cta" href="/imoveis" onClick={() => setOpen(false)}
-          style={{ transitionDelay: open ? "380ms" : "0ms" }}>
-          Ver imóveis
-        </Link>
+      <div id="s-mnav" className={"s-mnav" + (open ? " open" : "")}>
+        {LINKS.map((l) => <Link key={l.href} href={l.href} onClick={() => setOpen(false)}>{l.label}</Link>)}
+        {waHref
+          ? <a className="s-mnav-cta s-wa" href={waHref} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>Falar no WhatsApp</a>
+          : <Link className="s-mnav-cta s-cta" href="/imoveis" onClick={() => setOpen(false)}>Ver imóveis</Link>}
       </div>
     </>
   );

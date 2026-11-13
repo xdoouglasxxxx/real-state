@@ -6,7 +6,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover", // safe areas do iPhone (notch / Dynamic Island)
-  themeColor: "#17130e",
+  themeColor: "#0e0f12",
 };
 
 export async function generateMetadata(): Promise<Metadata> {

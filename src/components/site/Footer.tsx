@@ -1,12 +1,16 @@
 import Link from "next/link";
+import SiteLogo from "./SiteLogo";
 
-export default function Footer({ orgName, creci, phone }: { orgName: string; creci?: string | null; phone?: string | null }) {
-  const [first, ...rest] = orgName.toUpperCase().split(" ");
+export default function Footer({ orgName, logoUrl, creci, phone }: { orgName: string; logoUrl?: string | null; creci?: string | null; phone?: string | null }) {
+  const meta = [creci, phone].filter(Boolean).join(" · ");
   return (
-    <footer className="footer">
-      <div className="footer-top">
-        <Link className="logo" href="/">{first} <em>{rest.join(" ") || "ESTATE"}</em></Link>
-        <div className="footer-links">
+    <footer className="s-foot">
+      <div className="wrap s-foot-in">
+        <div>
+          <Link className="s-logo" href="/" aria-label={`${orgName}: página inicial`}><SiteLogo orgName={orgName} logoUrl={logoUrl} /></Link>
+          {meta && <p className="s-foot-meta">{meta}</p>}
+        </div>
+        <nav className="s-foot-nav" aria-label="Rodapé">
           <Link href="/imoveis">Imóveis</Link>
           <Link href="/vender">Vender</Link>
           <Link href="/sobre">Sobre</Link>
@@ -15,13 +19,10 @@ export default function Footer({ orgName, creci, phone }: { orgName: string; cre
           <Link href="/termos">Termos</Link>
           <Link href="/acessibilidade">Acessibilidade</Link>
           <Link href="/login">Entrar</Link>
-        </div>
+        </nav>
       </div>
-      <div className="footer-bottom">
-        <span>© {new Date().getFullYear()} {orgName} · {creci ?? ""}</span>
-        <span>{phone ?? ""}</span>
-      </div>
-      <div className="footer-saas">
+      <div className="wrap s-foot-bottom">
+        <span>© {new Date().getFullYear()} {orgName}</span>
         <Link href="/criar">Para imobiliárias — crie o seu site como este →</Link>
       </div>
     </footer>

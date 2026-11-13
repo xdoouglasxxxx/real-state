@@ -1,173 +1,201 @@
 import Link from "next/link";
 import { getTenant } from "@/lib/tenant";
-import { getFeaturedProperties, getNeighborhoods, getAgents, getTestimonials } from "@/lib/data";
-import { HERO_VIDEO, HERO_FALLBACK, PARALLAX_IMG } from "@/lib/demo-data";
+import { getFeaturedProperties, getAgents, getTestimonials, getMapPins } from "@/lib/data";
+import { loadSiteSummary } from "@/lib/site-summary";
+import { PRICE_BANDS } from "@/lib/search";
+import { TYPE_LABEL } from "@/lib/format";
+import { plural, whatsappHref } from "@/lib/site";
 import PropertyCard from "@/components/site/PropertyCard";
-import Parallax from "@/components/site/Parallax";
+import PublicMap from "@/components/site/PublicMap";
 
-const HOODS = [
-  { name: "Jardins", tag: "Clássico e arborizado", img: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80" },
-  { name: "Itaim Bibi", tag: "Skyline e conveniência", img: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80" },
-  { name: "Alphaville", tag: "Espaço e privacidade", img: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80" },
-  { name: "Riviera de São Lourenço", tag: "Pé na areia", img: "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800&q=80" },
-];
+const OSM = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const ICON = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+const Check = () => <svg width="18" height="18" viewBox="0 0 24 24" {...ICON} aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>;
+const House = () => <svg width="18" height="18" viewBox="0 0 24 24" {...ICON} aria-hidden="true"><path d="M3 11l9-8 9 8M5 10v10h14V10" /></svg>;
+const Plus = () => <svg width="18" height="18" viewBox="0 0 24 24" {...ICON} aria-hidden="true"><path d="M12 3v18M3 12h18" /></svg>;
+const Chat = () => <svg width="18" height="18" viewBox="0 0 24 24" {...ICON} aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-6.2A8 8 0 1 1 21 12z" /></svg>;
+const Star = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3 7 7 .6-5.3 4.7L18.2 22 12 18.3 5.8 22l1.5-7.7L2 9.6 9 9z" /></svg>;
 
-const SERVICES = [
-  { title: "Compra assessorada", desc: "Curadoria de imóveis dentro do seu perfil, visitas acompanhadas e negociação em seu nome." },
-  { title: "Venda estratégica", desc: "Precificação por análise comparativa, produção visual profissional e divulgação segmentada." },
-  { title: "Avaliação de mercado", desc: "Estudo de valor em 48 h com base em transações reais da região — sem custo." },
-  { title: "Assessoria jurídica", desc: "Due diligence, contratos e escritura conduzidos por equipe própria, do início ao fim." },
+const STEPS = [
+  { t: "Conte o que você procura", d: "Diga o tipo, a região e a faixa de preço. Selecionamos opções dentro do seu perfil." },
+  { t: "Visite com acompanhamento", d: "Agendamos as visitas e acompanhamos você em cada uma." },
+  { t: "Negocie com segurança", d: "Negociação em seu nome e assessoria jurídica até a escritura." },
 ];
 
 export default async function Home() {
   const org = await getTenant();
-  const [featured, hoods, agents, testimonials] = await Promise.all([
-    getFeaturedProperties(org.id),
-    getNeighborhoods(org.id),
+  const [featured, summary, pins, agents, testimonials] = await Promise.all([
+    getFeaturedProperties(org.id, 4),
+    loadSiteSummary(org.id),
+    getMapPins(org.id),
     getAgents(org.id),
     getTestimonials(org.id),
   ]);
+  const wa = whatsappHref(org.phone, `Olá! Vim pelo site da ${org.name}.`);
+  const n = summary.availableCount;
 
   return (
     <main>
-      {/* HERO com vídeo + busca em frase (form GET puro, zero JS) */}
-      <header className="hero">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="hero-img" src={HERO_FALLBACK} alt="" aria-hidden="true" />
-        <video className="hero-img hero-video" src={HERO_VIDEO} autoPlay muted loop playsInline
-          aria-label="Casa de alto padrão iluminada ao entardecer" />
-        <div className="hero-veil" />
-        <div className="hero-content">
-          <p className="eyebrow">{org.name} · Imóveis de alto padrão</p>
-          <h1>Bem-vindo ao seu<br /><em>próximo</em> lar</h1>
+      {/* BUSCA (form GET puro, zero JS) */}
+      <section className="s-hero">
+        <div className="wrap s-hero-in">
+          <nav className="s-tabs" aria-label="O que você quer fazer">
+            <span className="s-tab on" aria-current="true">Comprar</span>
+            <Link className="s-tab" href="/vender">Vender</Link>
+            <Link className="s-tab" href="/vender">Avaliar meu imóvel</Link>
+          </nav>
+          <h1>Encontre o imóvel certo, com quem conhece <em>cada bairro</em></h1>
+          <p className="s-sub">Curadoria de imóveis de alto padrão, visitas acompanhadas e negociação em seu nome.</p>
 
-          <form action="/imoveis" method="GET">
-            <div className="search-sentence">
-              <span>Eu quero comprar</span>
-              <select name="type" defaultValue="" aria-label="Tipo de imóvel">
-                <option value="">qualquer imóvel</option>
-                <option value="HOUSE">Casa</option>
-                <option value="APARTMENT">Apartamento</option>
+          <form className="s-search" action="/imoveis" method="GET" role="search">
+            <label className="s-field">Tipo
+              <select name="type" defaultValue="">
+                <option value="">Qualquer imóvel</option>
+                {Object.entries(TYPE_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
-              <span>em</span>
-              <select name="location" defaultValue="" aria-label="Região">
-                <option value="">todas as regiões</option>
-                {hoods.map((n) => <option key={n} value={n}>{n}</option>)}
+            </label>
+            <label className="s-field">Região
+              <select name="location" defaultValue="">
+                <option value="">Todas as regiões</option>
+                {summary.hoods.map((h) => <option key={h.name} value={h.name}>{h.name}</option>)}
               </select>
-              <span>por</span>
-              <select name="price" defaultValue="" aria-label="Faixa de preço">
+            </label>
+            <label className="s-field">Preço
+              <select name="price" defaultValue="">
                 <option value="">Qualquer preço</option>
-                <option value="0-1000000">Até R$ 1 mi</option>
-                <option value="1000000-3000000">R$ 1 – 3 mi</option>
-                <option value="3000000-6000000">R$ 3 – 6 mi</option>
-                <option value="6000000-">Acima de R$ 6 mi</option>
+                {PRICE_BANDS.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
               </select>
-            </div>
-            <button className="btn-hero" type="submit">Buscar imóveis</button>
+            </label>
+            <label className="s-field">Quartos
+              <select name="beds" defaultValue="">
+                <option value="">Qualquer</option>
+                {[1, 2, 3, 4, 5].map((q) => <option key={q} value={q}>{q}+</option>)}
+              </select>
+            </label>
+            <button className="s-submit" type="submit">Buscar imóveis</button>
           </form>
+
+          <div className="s-chips">
+            <Link className="s-chip" href="/imoveis?type=HOUSE">Casas</Link>
+            <Link className="s-chip" href="/imoveis?type=APARTMENT">Apartamentos</Link>
+            <Link className="s-chip" href="/imoveis?price=1000000-3000000">R$ 1 – 3 mi</Link>
+            <Link className="s-chip" href="/imoveis?price=3000000-6000000">R$ 3 – 6 mi</Link>
+            <Link className="s-chip" href="/imoveis?excl=1">Exclusivos</Link>
+          </div>
+
+          <div className="s-trust">
+            {org.creci && <span><Check />{org.creci}</span>}
+            {n > 0 && <span><House />{n} {plural(n, "imóvel disponível", "imóveis disponíveis")}</span>}
+            <span><Plus />Visitas acompanhadas</span>
+            {wa && <span><Chat />Atendimento por WhatsApp</span>}
+          </div>
         </div>
-      </header>
+      </section>
 
       {/* DESTAQUES */}
       {featured.length > 0 && (
-      <section className="section cream">
-        <div className="section-head">
-          <p className="eyebrow dark">Seleção da semana</p>
-          <h2 className="dark">Imóveis em <em>destaque</em></h2>
-        </div>
-        <div className="grid-3">
-          {featured.map((p: any) => <PropertyCard key={p.id} p={p} light />)}
-        </div>
-        <div className="center"><Link className="btn-dark" href="/imoveis">Ver todos os imóveis</Link></div>
-      </section>
+        <section className="wrap s-sec">
+          <div className="s-sec-head">
+            <h2>Imóveis em <em>destaque</em></h2>
+            <div className="s-links">
+              <Link className="s-chip on" href="/imoveis">Todos</Link>
+              <Link className="s-chip" href="/imoveis?type=HOUSE">Casas</Link>
+              <Link className="s-chip" href="/imoveis?type=APARTMENT">Apartamentos</Link>
+              <Link className="s-more" href="/imoveis">Ver todos →</Link>
+            </div>
+          </div>
+          <div className="pc-grid">
+            {featured.map((p: any) => <PropertyCard key={p.id} p={p} />)}
+          </div>
+        </section>
       )}
 
-      {/* BAIRROS */}
-      <section className="section">
-        <div className="section-head">
-          <p className="eyebrow">Especialistas de bairro</p>
-          <h2>Conhecemos cada <em>esquina</em></h2>
-        </div>
-        <div className="grid-4">
-          {HOODS.map((n) => (
-            <Link className="hood" key={n.name} href={`/imoveis?location=${encodeURIComponent(n.name)}`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={n.img} alt={n.name} loading="lazy" />
-              <div className="hood-label"><h3>{n.name}</h3><span>{n.tag}</span></div>
-            </Link>
+      {/* MAPA */}
+      {pins.length > 0 && (
+        <section className="wrap s-sec">
+          <div className="s-map">
+            <div className="s-map-copy">
+              <h2>Veja os imóveis <em>no mapa</em></h2>
+              <p>Explore por região. Toque num pin para ver o imóvel. A posição é aproximada: o endereço exato é informado na visita.</p>
+              <Link className="s-cta" href="/imoveis?visao=mapa">Abrir o mapa</Link>
+            </div>
+            <div className="s-map-map">
+              <PublicMap pins={pins} height={380}
+                tileTemplate={process.env.NEXT_PUBLIC_MAP_TILE_URL || OSM}
+                attribution={process.env.NEXT_PUBLIC_MAP_ATTRIBUTION || "© OpenStreetMap contributors"} />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* COMO FUNCIONA */}
+      <section className="wrap s-sec">
+        <div className="s-sec-head"><h2>Como <em>funciona</em></h2></div>
+        <div className="s-steps">
+          {STEPS.map((s, i) => (
+            <div className="s-step" key={s.t}><div className="s-step-n" aria-hidden="true">{i + 1}</div><h3>{s.t}</h3><p>{s.d}</p></div>
           ))}
         </div>
       </section>
 
-      {/* SERVIÇOS */}
-      <section className="section cream">
-        <div className="section-head">
-          <p className="eyebrow dark">Como trabalhamos</p>
-          <h2 className="dark">Serviço completo, <em>do começo ao fim</em></h2>
-        </div>
-        <div className="grid-4">
-          {SERVICES.map((s) => (
-            <div className="service" key={s.title}><h3>{s.title}</h3><p>{s.desc}</p></div>
-          ))}
-        </div>
-      </section>
-
-      {/* STATS */}
-      <section className="section stats-strip">
-        {[["14 anos", "de mercado"], ["R$ 2,1 bi", "em vendas"], ["640+", "famílias atendidas"], ["31 dias", "tempo médio de venda"]].map(([n, l]) => (
-          <div className="stat" key={l}><strong>{n}</strong><span>{l}</span></div>
-        ))}
-      </section>
+      {/* BAIRROS (só os que têm imóvel disponível agora) */}
+      {summary.hoods.length > 0 && (
+        <section className="wrap s-sec">
+          <div className="s-sec-head"><h2>Bairros com imóveis <em>disponíveis</em></h2></div>
+          <div className="s-hoods">
+            {summary.hoods.map((h) => (
+              <Link className="s-chip" key={h.name} href={`/imoveis?location=${encodeURIComponent(h.name)}`}>{h.name}<small>{h.count}</small></Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* EQUIPE */}
       {agents.length > 0 && (
-      <section className="section tight">
-        <div className="section-head">
-          <p className="eyebrow">Quem atende você</p>
-          <h2>Nossa <em>equipe</em></h2>
-        </div>
-        <div className="grid-3">
-          {agents.map((a: any) => (
-            <article className="agent" key={a.id}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={a.photoUrl} alt={a.name} loading="lazy" />
-              <h3>{a.name}</h3>
-              <p>{a.creci}</p>
-              <span className="agent-phone">{a.phone}</span>
-            </article>
-          ))}
-        </div>
-      </section>
+        <section className="wrap s-sec">
+          <div className="s-sec-head"><h2>Fale com quem <em>atende você</em></h2></div>
+          <div className="s-team">
+            {agents.map((a: any) => {
+              const first = String(a.name ?? "").split(" ")[0];
+              const link = whatsappHref(a.phone, `Olá, ${first}! Vim pelo site da ${org.name}.`);
+              return (
+                <article className="s-agent" key={a.id}>
+                  {a.photoUrl
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img className="s-avatar" src={a.photoUrl} alt="" loading="lazy" />
+                    : <span className="s-avatar" aria-hidden="true">{first.charAt(0)}</span>}
+                  <div className="s-agent-txt"><h3>{a.name}</h3>{a.creci && <p>{a.creci}</p>}</div>
+                  {link && <a className="s-wa-sm" href={link} target="_blank" rel="noopener noreferrer" aria-label={`Falar com ${a.name} no WhatsApp`}>WhatsApp</a>}
+                </article>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       {/* DEPOIMENTOS */}
       {testimonials.length > 0 && (
-      <section className="section tight">
-        <div className="section-head">
-          <p className="eyebrow">Quem confia</p>
-          <h2>Histórias de quem <em>chegou em casa</em></h2>
-        </div>
-        <div className="grid-3">
-          {testimonials.map((t: any) => (
-            <figure className="quote" key={t.id}>
-              <blockquote>“{t.text}”</blockquote>
-              <figcaption><strong>{t.author}</strong><span>{t.context}</span></figcaption>
-            </figure>
-          ))}
-        </div>
-      </section>
+        <section className="wrap s-sec">
+          <div className="s-sec-head"><h2>Quem já <em>chegou em casa</em></h2></div>
+          <div className="s-quotes">
+            {testimonials.map((t: any) => (
+              <figure className="s-quote" key={t.id}>
+                {t.rating > 0 && <div className="s-stars" role="img" aria-label={`${t.rating} de 5 estrelas`}>{Array.from({ length: Math.min(5, t.rating) }, (_, i) => <Star key={i} />)}</div>}
+                <blockquote>“{t.text}”</blockquote>
+                <figcaption><strong>{t.author}</strong>{t.context ? ` · ${t.context}` : ""}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
       )}
 
-      {/* CTA + PARALLAX */}
-      <section className="cta">
-        <div>
-          <h2>Pensando em <em>vender</em>?</h2>
-          <p>Avaliamos seu imóvel sem custo e apresentamos um plano de venda em até 48 horas.</p>
+      {/* VENDER */}
+      <section className="wrap s-sec">
+        <div className="s-panel">
+          <div><h2>Pensando em <em>vender</em>?</h2><p>Avaliamos seu imóvel e apresentamos um plano de venda.</p></div>
+          <Link className="s-cta" href="/vender">Solicitar avaliação</Link>
         </div>
-        <Link className="btn-solid" href="/vender">Solicitar avaliação</Link>
       </section>
-
-      <Parallax src={PARALLAX_IMG} alt="Casa moderna de madeira e pedra com piscina ao entardecer" />
     </main>
   );
 }

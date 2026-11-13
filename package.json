@@ -9,7 +9,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "test:unit": "tsx --test tests/unit/reset-token.test.ts tests/unit/domains.test.ts tests/unit/geo.test.ts tests/unit/contrast.test.ts tests/unit/nav.test.ts tests/unit/periods.test.ts tests/unit/funnel.test.ts tests/unit/dash-calc.test.ts tests/unit/dashboard.test.ts tests/unit/finance-chart.test.ts tests/unit/agent-drafts.test.ts tests/unit/agent-day.test.ts"
+    "test:unit": "tsx --test tests/unit/reset-token.test.ts tests/unit/domains.test.ts tests/unit/geo.test.ts tests/unit/contrast.test.ts tests/unit/nav.test.ts tests/unit/periods.test.ts tests/unit/funnel.test.ts tests/unit/dash-calc.test.ts tests/unit/dashboard.test.ts tests/unit/finance-chart.test.ts tests/unit/agent-drafts.test.ts tests/unit/agent-day.test.ts tests/unit/search.test.ts tests/unit/site.test.ts tests/unit/site-data.test.ts tests/unit/css-scope.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

@@ -17,6 +17,7 @@ depende de terceiros.
 | **3** | Dashboard interativo (período, corretor, funil, origem) | M | CP2 (recomendado) | 🔶 código pronto |
 | **4** | Financeiro com gráficos | M | CP3 (reaproveita os gráficos) | 🔶 código pronto |
 | **5** | Agente IA, fase 1: resumo do dia por regras (sem IA externa) | M | CP1 | 🔶 código pronto |
+| **S** | Site público modernizado (vitrine escura, direção D) — antes do CP6 | M | CP2 | 🔶 código pronto |
 | **6** | Agente IA, fase 2: chat com IA real | G | CP5 e T6 | ⬜ |
 | **7** | Agente IA, fase 3: respostas automáticas no WhatsApp | GG | CP6 e T2 | ⬜ |
 
@@ -154,6 +155,25 @@ Pronto quando:
 - [ ] Corretor só vê as sugestões dos próprios leads e visitas.
 - [ ] Rascunhos usam só o primeiro nome do cliente; nenhum dado sai do sistema.
 - [ ] Aprovar/dispensar não duplica anotações na timeline.
+
+## CPS — Site público: vitrine moderna em escuro refinado (direção D)  ·  M  ·  🔶
+
+Entrega: cabeçalho com busca, WhatsApp e **logo do tenant**; home (busca, destaques, **mapa público**,
+como funciona, bairros reais, equipe, depoimentos, vender); listagem com busca por texto, quartos,
+exclusivos e **vista em mapa**; cartão de imóvel novo; páginas internas re-temadas. Detalhes e regras: `SITE.md`.
+
+**Pronto quando:**
+- [ ] ZIP aplicado e build da Vercel **Ready** (os tipos do Prisma só a Vercel confere).
+- [ ] Home da Maison em computador **e** celular: sem rolagem lateral, menu abre/fecha, botão de WhatsApp no menu.
+- [ ] Tenant de teste **sem** logo, telefone e CRECI: sem botão de WhatsApp, sem rodapé com "·" solto.
+- [ ] Cadastrar um logo `https://` em Configurações → aparece no cabeçalho e no rodapé; um `http://` é ignorado.
+- [ ] Trocar a cor da marca (inclusive uma muito escura ou muito clara) → destaque continua legível.
+- [ ] `/imoveis?type=xyz&price=abc` mostra a lista normal (nunca imóveis de demonstração).
+- [ ] Mapa: pins levam ao imóvel; condomínio com vários imóveis na mesma célula abre uma lista.
+- [ ] Página do imóvel: **sem** mapa do Google; só o círculo de região; "Ver código-fonte" não mostra a coordenada exata (JSON-LD arredondado).
+- [ ] **Decisão:** textos de promessa ("48 h", "sem custo", "assessoria jurídica") ficam fixos ou o cliente edita?
+- [ ] **Decisão:** provedor de tiles para o tráfego público (`NEXT_PUBLIC_MAP_TILE_URL`).
+- [ ] **Decisão:** remover os campos "tinta" e "creme" de Configurações (agora sem efeito).
 
 ## CP6 — Agente IA, fase 2: chat com IA real  ·  G  ·  ⬜
 

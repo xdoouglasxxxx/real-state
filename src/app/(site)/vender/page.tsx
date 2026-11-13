@@ -50,9 +50,9 @@ export default function Vender({ searchParams }: { searchParams: { enviado?: str
             <option value="LAND">Terreno</option>
             <option value="COMMERCIAL">Comercial</option>
           </select>
-          <label style={{ display: "flex", alignItems: "center", gap: ".6rem", fontSize: ".85rem", color: "var(--stone)" }}>
-            <input type="checkbox" name="lgpd" required style={{ width: "auto", flexShrink: 0 }} />
-            Concordo em ser contatado sobre imóveis e serviços, conforme a{" "}<a href="/privacidade" style={{ color: "var(--brass)" }}>Política de Privacidade</a>
+          <label className="consent">
+            <input type="checkbox" name="lgpd" required />
+            <span>Concordo em ser contatado sobre imóveis e serviços, conforme a <a href="/privacidade">Política de Privacidade</a></span>
           </label>
           {searchParams.erro && <p style={{ color: "#d88" }}>{searchParams.erro === "limite"
             ? "Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo."

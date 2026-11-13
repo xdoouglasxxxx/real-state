@@ -284,6 +284,8 @@ html{scroll-behavior:smooth}
 
 /* Nunca estourar a tela */
 html,body{overflow-x:hidden;max-width:100vw}
+/* Site público: overflow-x:hidden em html E body faz o body virar contêiner de rolagem e QUEBRA position:sticky (cabeçalho). `clip` corta igual, sem criar contêiner. Navegador sem :has/clip só perde o cabeçalho fixo. */
+html:has(.site),html:has(.site) body{overflow-x:clip}
 
 /* Safe areas (notch / Dynamic Island) */
 .nav{padding-top:env(safe-area-inset-top)}

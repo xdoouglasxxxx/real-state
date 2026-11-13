@@ -1,6 +1,6 @@
 /**
  * Banco de mentira p/ testar consultas do Prisma sem banco. Implementa só o que o código do projeto usa:
- * count, findMany, findFirst, create, aggregate, groupBy; filtros gte/gt/lt/lte/in/notIn/not/OR, relações
+ * count, findMany, findFirst, findUnique, create, aggregate, groupBy; filtros gte/gt/lt/lte/in/notIn/not/OR, relações
  * (to-one e `none`/`some` em to-many) e filtro em JSON (`path` + `equals`/`string_starts_with`); `select` aninhado.
  * Campo desconhecido ou operador não suportado LANÇA ERRO — erro de digitação numa consulta aparece no teste
  * em vez de passar calado.
@@ -46,6 +46,8 @@ export function makeFakeDb(t: Tables) {
           case "in": if (!(arg as any[]).includes(v)) return false; break;
           case "notIn": if ((arg as any[]).includes(v)) return false; break;
           case "not": if (arg === null ? v == null : v === arg) return false; break;
+          case "mode": break; // junto de `contains`: a comparação já é sem diferença de maiúsculas
+          case "contains": if (!(typeof v === "string" && v.toLowerCase().includes(String(arg).toLowerCase()))) return false; break;
           default: throw new Error(`banco de mentira: operador "${op}" não suportado em ${where}`);
         }
       }
@@ -115,6 +117,15 @@ export function makeFakeDb(t: Tables) {
       if (take) out = out.slice(0, take);
       return out.map((r) => project(table, r, select));
     },
+    // chave composta do Prisma (ex.: organizationId_slug: { organizationId, slug }) vira filtro simples
+    findUnique: async ({ where, select }: Row = {}) => {
+      const flat: Row = {};
+      for (const [k, v] of Object.entries(where ?? {})) {
+        if (k.includes("_") && v && typeof v === "object" && !(v instanceof Date)) Object.assign(flat, v); else flat[k] = v;
+      }
+      const r = rows(table, flat)[0];
+      return r ? project(table, r, select) : null;
+    },
     findFirst: async ({ where, select, orderBy }: Row = {}) => {
       const r = sorted(rows(table, where), orderBy)[0];
       return r ? project(table, r, select) : null;
@@ -139,6 +150,6 @@ export function makeFakeDb(t: Tables) {
   return {
     lead: model("lead"), visit: model("visit"), property: model("property"), contract: model("contract"), proposal: model("proposal"),
     goal: model("goal"), activity: model("activity"), agent: model("agent"), financeEntry: model("financeEntry"),
-    task: model("task"), contact: model("contact"),
+    task: model("task"), contact: model("contact"), testimonial: model("testimonial"),
   };
 }

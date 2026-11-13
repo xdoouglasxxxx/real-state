@@ -8,6 +8,8 @@ import { brl, STATUS_LABEL, TYPE_LABEL } from "@/lib/format";
 import { MCMV_TETO_IMOVEL } from "@/lib/financing";
 import Gallery from "@/components/site/Gallery";
 import PropertyCard from "@/components/site/PropertyCard";
+import PublicMap from "@/components/site/PublicMap";
+import { publicLatLng, safeJsonLd } from "@/lib/site";
 
 type Props = { params: { slug: string }; searchParams: { enviado?: string; erro?: string } };
 
@@ -30,6 +32,8 @@ export default async function PropertyPage({ params, searchParams }: Props) {
   const p = await getPropertyBySlug(org.id, params.slug);
   if (!p) notFound();
   const similar = await getSimilar(org.id, p.type, p.id);
+  // Localização PÚBLICA: sempre arredondada (~110 m). A coordenada exata nunca sai do servidor (nem no mapa, nem no JSON-LD).
+  const pub = publicLatLng(p.latitude, p.longitude);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -42,7 +46,7 @@ export default async function PropertyPage({ params, searchParams }: Props) {
     floorSize: { "@type": "QuantitativeValue", value: p.areaM2, unitCode: "MTK" },
     offers: { "@type": "Offer", price: p.price, priceCurrency: "BRL" },
     address: { "@type": "PostalAddress", addressLocality: p.city, addressRegion: p.state ?? "SP", addressCountry: "BR" },
-    ...(p.latitude ? { geo: { "@type": "GeoCoordinates", latitude: p.latitude, longitude: p.longitude } } : {}),
+    ...(pub ? { geo: { "@type": "GeoCoordinates", latitude: pub.lat, longitude: pub.lng } } : {}),
   };
 
   const breadcrumbLd = {
@@ -57,8 +61,8 @@ export default async function PropertyPage({ params, searchParams }: Props) {
 
   return (
     <main className="page">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbLd) }} />
       <Link className="back" href="/imoveis">← Voltar aos imóveis</Link>
 
       <div className="detail-grid">
@@ -94,14 +98,15 @@ export default async function PropertyPage({ params, searchParams }: Props) {
             ) : null;
           })()}
 
-          {p.latitude && p.longitude && (
+          {pub && (
             <div style={{ marginTop: "1.5rem" }}>
               <p className="eyebrow">Localização</p>
-              <iframe
-                src={`https://www.google.com/maps?q=${p.latitude},${p.longitude}&z=15&output=embed`}
-                title={`Mapa — ${p.neighborhood}`}
-                style={{ width: "100%", height: 320, border: "1px solid var(--line)", borderRadius: 4 }}
-                loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+              <PublicMap
+                area label={`Mapa da região de ${p.neighborhood ?? p.city ?? "localização do imóvel"}`}
+                pins={[{ slug: p.slug, title: p.title, price: Number(p.price), lat: pub.lat, lng: pub.lng, exclusive: p.status === "EXCLUSIVE" }]}
+                tileTemplate={process.env.NEXT_PUBLIC_MAP_TILE_URL || "https://tile.openstreetmap.org/{z}/{x}/{y}.png"}
+                attribution={process.env.NEXT_PUBLIC_MAP_ATTRIBUTION || "© OpenStreetMap contributors"}
+                height={320} />
               <p style={{ fontSize: ".8rem", color: "var(--stone)", marginTop: ".4rem" }}>
                 Região aproximada — o endereço exato é informado na visita.
               </p>
@@ -149,9 +154,9 @@ export default async function PropertyPage({ params, searchParams }: Props) {
                       <input name="name" placeholder="Seu nome" required maxLength={120} />
                       <input name="phone" placeholder="Telefone / WhatsApp" required maxLength={20} />
                       <textarea name="message" placeholder="Mensagem (opcional)" rows={3} maxLength={2000} />
-                      <label style={{ display: "flex", alignItems: "center", gap: ".6rem", fontSize: ".85rem", color: "var(--stone)", marginTop: ".25rem" }}>
-                        <input type="checkbox" name="lgpd" required style={{ width: "auto", flexShrink: 0 }} />
-                        Concordo em ser contatado sobre imóveis e serviços, conforme a{" "}<a href="/privacidade" style={{ color: "var(--brass)" }}>Política de Privacidade</a>
+                      <label className="consent">
+                        <input type="checkbox" name="lgpd" required />
+                        <span>Concordo em ser contatado sobre imóveis e serviços, conforme a <a href="/privacidade">Política de Privacidade</a></span>
                       </label>
                       {searchParams.erro && <p style={{ color: "#d88" }}>{searchParams.erro === "limite"
                         ? "Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo."
@@ -171,7 +176,7 @@ export default async function PropertyPage({ params, searchParams }: Props) {
       {similar.length > 0 && (
         <section className="section tight" style={{ paddingLeft: 0, paddingRight: 0 }}>
           <h2>Você também pode <em>gostar</em></h2>
-          <div className="grid-3" style={{ marginTop: "2rem" }}>
+          <div className="pc-grid" style={{ marginTop: "2rem" }}>
             {similar.map((s: any) => <PropertyCard key={s.id} p={s} />)}
           </div>
         </section>

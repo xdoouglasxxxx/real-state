@@ -14,6 +14,8 @@ export type Tenant = {
   themeCream: string;
   creci?: string | null;
   phone?: string | null;
+  /** logo configurado em Configurações (só https é aceito na exibição: ver safeLogoUrl) */
+  logoUrl?: string | null;
 };
 
 /**

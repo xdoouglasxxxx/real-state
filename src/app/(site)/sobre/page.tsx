@@ -11,7 +11,7 @@ export default async function Sobre() {
   return (
     <main className="page">
       <div className="page-head">
-        <p className="eyebrow">Desde 2012</p>
+        <p className="eyebrow">Sobre nós</p>
         <h1>Uma casa não se vende.<br /><em>Se apresenta.</em></h1>
         <p className="lead">
           A {org.name} nasceu de uma convicção simples: imóveis de alto padrão pedem o mesmo
